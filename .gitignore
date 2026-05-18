@@ -1,0 +1,23 @@
+# Local environment
+.env
+.env.local
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+/api/bin/
+*.exe
+
+# Node
+node_modules/
+.next/
+dist/
+
+# IDE
+.idea/
+.vscode/
