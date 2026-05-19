@@ -1,6 +1,6 @@
 # HANDOFF.md — Home Ledger 项目交接文档
 
-> 写给下一个接手的 AI agent。今天日期 2026-05-19，上次工作会话到此结束。
+> 写给下一个接手的 AI agent。最后更新 2026-05-19。
 
 ---
 
@@ -23,12 +23,23 @@
 | 7 | 小票上传（GCS 存储） | ✅ Done | `2ab7947` |
 | 8 | OpenAI 识别 + AI 审核确认流 | ✅ Done | `2ab7947` |
 | 9 | （并入 M8，已完成） | ✅ Done | — |
-| 10 | 固定规则/循环支出 | ⏳ Not started |
+| 10 | 固定规则/循环支出 | ✅ Done | `787889f` |
 | 11 | 月度分类预算 | ⏳ Not started |
 | 12 | 月度 Dashboard（真实数据） | ⏳ Not started |
 | 13 | Cloud Run 部署 | ⏳ Not started |
 
-**现在应从 M10 开始。**
+**现在应从 M11 开始。**
+
+### 关于小票上传 501 错误
+
+如果上传小票时看到"this endpoint is not yet implemented"，原因是 Go 服务器进程是旧的（M6 之前编译），需要重启：
+
+```bash
+cd api
+go run ./cmd/api
+```
+
+M7+8 的代码（`POST /api/receipts/upload`、`POST /api/receipts/{id}/extract`）已经在 commit `2ab7947` 里正确实现了。
 
 ---
 
@@ -133,7 +144,7 @@ web/src/
     transactions/page.tsx           交易列表
     upload/page.tsx                 小票上传
     ai-confirm/page.tsx             AI 审核
-    fixed/page.tsx                  固定规则（M10 需接真实 API）
+    fixed/page.tsx                  固定规则（M10 已接真实 API）
     budget/page.tsx                 预算（M11 需接真实 API）
     settings/page.tsx               设置
   context/
@@ -193,11 +204,17 @@ PATCH  /api/transaction-candidates/{id}
 POST   /api/transaction-candidates/{id}/confirm
 POST   /api/transaction-candidates/{id}/reject
 
-# 以下返回 501 Not Implemented（M10-M11 工作范围）：
-GET/POST/PATCH /api/recurring-rules
-GET/POST/PATCH /api/budgets
-GET            /api/budgets/usage
-POST           /api/jobs/generate-recurring-transactions
+# M10 已实现：
+GET    /api/recurring-rules
+POST   /api/recurring-rules
+PATCH  /api/recurring-rules/{ruleId}
+POST   /api/jobs/generate-recurring-transactions
+
+# 以下仍返回 501（M11 工作范围）：
+GET    /api/budgets
+POST   /api/budgets
+PATCH  /api/budgets/{budgetId}
+GET    /api/budgets/usage
 ```
 
 ---
@@ -218,57 +235,16 @@ transaction_candidates/{id}    TransactionCandidate（householdId, status: draft
 
 ---
 
-## M10：固定规则 / 循环支出（下一步实现）
+## M10：固定规则 / 循环支出 ✅ 已完成（commit `787889f`）
 
-**产品需求**：
-- 房租、保险、订阅等每月固定支出/收入
-- 用户在"固定" tab 管理规则列表（已有静态页面 `/fixed`）
-- 后端定期（或手动触发）生成 Transaction
-
-**需要实现**：
-
-### 后端
-
-1. `api/internal/repo/recurring_rule.go`
-   - `CreateRecurringRule`, `ListRecurringRules(householdId)`, `GetRecurringRule`, `UpdateRecurringRule`
-
-2. `api/internal/domain/types.go` 增加 `RecurringRule` 结构体：
-   ```go
-   type RecurringRule struct {
-       ID              string    `firestore:"id"`
-       HouseholdID     string    `firestore:"householdId"`
-       ActorID         string    `firestore:"actorId"`
-       TransactionType string    `firestore:"transactionType"` // expense|income
-       Amount          int64     `firestore:"amount"`
-       Currency        string    `firestore:"currency"`
-       CategoryID      string    `firestore:"categoryId"`
-       PaymentMethodID string    `firestore:"paymentMethodId"`
-       Title           string    `firestore:"title"`
-       DayOfMonth      int       `firestore:"dayOfMonth"` // 1-28
-       IsActive        bool      `firestore:"isActive"`
-       CreatedAt       time.Time `firestore:"createdAt"`
-       UpdatedAt       time.Time `firestore:"updatedAt"`
-   }
-   ```
-
-3. `api/internal/handler/recurring.go`
-   - `listRecurringRules`, `createRecurringRule`, `patchRecurringRule`
-
-4. `api/internal/handler/jobs.go`
-   - `generateRecurringTransactions`：遍历 household 所有 active rules，对当月未生成的创建 Transaction
-
-5. `routes.go` 把 `notImplemented` 替换为真实 handler
-
-### 前端
-
-`web/src/app/fixed/page.tsx` 目前展示 mock 数据，需改为：
-- `GET /api/recurring-rules` 拉取列表
-- `POST /api/recurring-rules` 新建
-- `PATCH /api/recurring-rules/{id}` 编辑/停用
+- `repo/recurring_rule.go`：Firestore CRUD
+- `handler/recurring.go`：GET/POST/PATCH `/api/recurring-rules`
+- `handler/jobs.go`：`POST /api/jobs/generate-recurring-transactions`（遍历 active rules，NextRunDate ≤ today → 创建 Transaction，自动推进 NextRunDate + 1 月）
+- `fixed/page.tsx`：改为真实 API，toggle 调用 PATCH `{isActive}`
 
 ---
 
-## M11：月度预算（M10 完成后）
+## M11：月度预算（下一步实现）
 
 **需要实现**：
 

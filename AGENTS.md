@@ -454,3 +454,4 @@ When working on this repository:
 10. Do not introduce unnecessary infrastructure or microservices.
 11. Commit after every meaningful change. Do not batch multiple unrelated changes into one commit.
 12. At the end of each session, suggest the next concrete step.
+13. After every commit, update HANDOFF.md to reflect the new milestone status and any changed implementation details. Keep the milestone table, "已实现的 API 路由" section, and "下一步" guidance current.
