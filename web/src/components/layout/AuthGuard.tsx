@@ -19,9 +19,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  // Show nothing while resolving auth state to avoid flash
   if (loading) {
-    return null;
+    return (
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f8f8' }}>
+        <div style={{ width: 32, height: 32, border: '3px solid #e0e0e0', borderTopColor: '#4285F4', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
   const isPublic = PUBLIC_PATHS.includes(pathname);
