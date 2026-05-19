@@ -25,12 +25,11 @@ func NewRouter(allowedOrigins []string) http.Handler {
 
 	// Authenticated API routes
 	r.Route("/api", func(r chi.Router) {
-		// TODO: mount auth middleware here once Firebase Auth is integrated
-		// r.Use(authmw.RequireAuth)
+		r.Use(middleware.RequireAuth)
 
 		// Identity & household
-		r.Get("/me", notImplemented)
-		r.Get("/households/current", notImplemented)
+		r.Get("/me", getMe)
+		r.Get("/households/current", getCurrentHousehold)
 
 		// Actors
 		r.Get("/actors", notImplemented)

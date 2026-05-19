@@ -13,6 +13,9 @@ Thumbs.db
 /api/bin/
 *.exe
 
+# Firebase credentials — never commit
+/api/credentials/
+
 # Node
 node_modules/
 .next/
