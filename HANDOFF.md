@@ -1,6 +1,6 @@
 # HANDOFF.md — Home Ledger 项目交接文档
 
-> 写给下一个接手的 AI agent。最后更新 2026-05-19。
+> 写给下一个接手的 AI agent。最后更新 2026-05-19（M8 强化：按商品分项 + 中文名 + 可编辑审核）。
 
 ---
 
@@ -21,7 +21,7 @@
 | 5 | Actors / Accounts / PaymentMethods / Categories | ✅ Done | `0581622` |
 | 6 | 手动记账 CRUD（expense / income / transfer） | ✅ Done | `520da33` |
 | 7 | 小票上传（GCS 存储） | ✅ Done | `2ab7947` |
-| 8 | OpenAI 识别 + AI 审核确认流 | ✅ Done | `2ab7947` |
+| 8 | OpenAI 识别 + AI 审核确认流 | ✅ Done | `9b03258` |
 | 9 | （并入 M8，已完成） | ✅ Done | — |
 | 10 | 固定规则/循环支出 | ✅ Done | `787889f` |
 | 11 | 月度分类预算 | ⏳ Not started |
@@ -114,7 +114,11 @@ Cloud Run     还未部署（M13）
 - **月份过滤客户端做**：Firestore 不支持字符串前缀，Go 拿全量后按 `transactionDate[:7]` 过滤
 - **图片压缩客户端做**：Canvas API，长边 ≤ 1600px，JPEG 85%（ADR-010）
 - **AI 按商品分类**：gpt-4o 提取每个商品并分配 categoryName（咖啡→餐饮，洗发露→日用品）；
-  handler 按 category 归组，每组创建一个 TransactionCandidate。用户必须手动 confirm，AI 不自动入账。
+  handler 为每个 line item 创建一个独立的 TransactionCandidate（`MerchantName` = 中文商品名）。
+  用户必须手动 confirm，AI 不自动入账。
+- **日文→中文翻译**：系统提示要求 AI 将商品名翻译为简体中文（コーヒー→咖啡，ポケモンカード→宝可梦卡片）。
+- **审核页可编辑**：`ai-confirm/page.tsx` 支持点击分类图标→分类选择器，点击名称/金额→内联编辑；
+  编辑缓存在本地，confirm 时先 PATCH edits 再 POST confirm。
 - **Bootstrap 幂等**：第一次登录调 `POST /api/households/bootstrap`，自动创 Household + 默认数据
 - **API envelope**：所有响应 `{ data, error }`，前端用 `apiFetch<T>` 统一解包
 - **中间件不导入 handler 包**：避免循环依赖，middleware/auth.go 直接 inline 写 401
