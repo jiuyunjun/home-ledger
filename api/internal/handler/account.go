@@ -11,6 +11,68 @@ import (
 	"github.com/home-ledger/api/internal/repo"
 )
 
+func getAccountBalances(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+	if claims.HouseholdID == "" {
+		writeJSON(w, http.StatusOK, map[string]int64{})
+		return
+	}
+
+	accounts, err := repo.ListAccounts(r.Context(), claims.HouseholdID)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+
+	pms, err := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+
+	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+
+	pmToAcct := make(map[string]string, len(pms))
+	for _, pm := range pms {
+		pmToAcct[pm.ID] = pm.AccountID
+	}
+
+	delta := make(map[string]int64)
+	for _, tx := range txs {
+		switch tx.TransactionType {
+		case domain.TxExpense:
+			if acctID := pmToAcct[tx.PaymentMethodID]; acctID != "" {
+				delta[acctID] -= tx.Amount
+			}
+		case domain.TxIncome:
+			if acctID := pmToAcct[tx.PaymentMethodID]; acctID != "" {
+				delta[acctID] += tx.Amount
+			}
+		case domain.TxTransfer:
+			if tx.FromAccountID != "" {
+				delta[tx.FromAccountID] -= tx.Amount
+			}
+			if tx.ToAccountID != "" {
+				delta[tx.ToAccountID] += tx.Amount
+			}
+		}
+	}
+
+	result := make(map[string]int64, len(accounts))
+	for _, a := range accounts {
+		result[a.ID] = a.OpeningBalance + delta[a.ID]
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func listAccounts(w http.ResponseWriter, r *http.Request) {
 	claims, ok := domain.ClaimsFromCtx(r.Context())
 	if !ok {

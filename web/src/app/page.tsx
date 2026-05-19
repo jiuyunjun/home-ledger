@@ -100,6 +100,7 @@ export default function DashboardPage() {
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [usageItems, setUsageItems] = useState<BudgetUsageItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accountBalances, setAccountBalances] = useState<Record<string, number>>({});
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
@@ -118,6 +119,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { load(month); }, [month, load]);
+
+  useEffect(() => {
+    apiGet<Record<string, number>>('/api/accounts/balances')
+      .then(setAccountBalances)
+      .catch(console.error);
+  }, []);
 
   // Selected actor filter (from RoleSwitcher via AppContext)
   const selectedActorId = state.currentRole || data.me?.actorId || '';
@@ -182,9 +189,70 @@ export default function DashboardPage() {
         <RoleSwitcher />
       </div>
 
+      <style>{`
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        .skel { background: linear-gradient(90deg,#f0ece6 25%,#e8e2da 50%,#f0ece6 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
+      `}</style>
+
       <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px 80px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: T.textMute, fontSize: 13 }}>加载中…</div>
+          <div>
+            {/* Hero card skeleton */}
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, padding: 14, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="skel" style={{ height: 10, width: '50%' }} />
+                  <div className="skel" style={{ height: 28, width: '70%' }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  <div className="skel" style={{ height: 10, width: '50%' }} />
+                  <div className="skel" style={{ height: 20, width: '60%' }} />
+                </div>
+              </div>
+            </div>
+            {/* Actor mini cards skeleton */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+              {[0, 1].map((i) => (
+                <div key={i} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="skel" style={{ height: 10, width: '60%' }} />
+                  <div className="skel" style={{ height: 16, width: '40%' }} />
+                </div>
+              ))}
+            </div>
+            {/* Action buttons (always rendered, not a skeleton) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
+              {ACTION_BTNS.map((btn) => (
+                <Link key={btn.label} href={btn.href} style={{ textDecoration: 'none' }}>
+                  <div style={{ background: btn.filled ? btn.color : T.surface, border: btn.filled ? 'none' : `1px solid ${T.border}`, borderRadius: 10, padding: '10px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 14, background: btn.filled ? 'rgba(255,255,255,0.18)' : `${btn.color}15`, color: btn.filled ? '#fff' : btn.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600 }}>{btn.glyph}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: btn.filled ? '#fff' : T.ink }}>{btn.label}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            {/* Account balance skeleton */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 0 10px', marginBottom: 4 }}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{ flex: '0 0 auto', minWidth: 124, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="skel" style={{ height: 10, width: '70%' }} />
+                  <div className="skel" style={{ height: 16, width: '50%' }} />
+                </div>
+              ))}
+            </div>
+            {/* Transaction list skeleton */}
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: '4px 12px' }}>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
+                  <div className="skel" style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0 }} />
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div className="skel" style={{ height: 12, width: '55%' }} />
+                    <div className="skel" style={{ height: 9, width: '35%' }} />
+                  </div>
+                  <div className="skel" style={{ height: 14, width: 50 }} />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <>
             {/* Hero card */}
@@ -266,7 +334,7 @@ export default function DashboardPage() {
                           <span style={{ marginLeft: 'auto', fontSize: 8, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>{a.currency}</span>
                         )}
                       </div>
-                      <Amount value={a.currentBalance} size={14} weight={600} currency={a.currency} showCurrency={false} />
+                      <Amount value={accountBalances[a.id] ?? a.currentBalance} size={14} weight={600} currency={a.currency} showCurrency={false} />
                     </div>
                   ))}
                 </div>

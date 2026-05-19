@@ -36,6 +36,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 
 		// Accounts
 		r.Get("/accounts", listAccounts)
+		r.Get("/accounts/balances", getAccountBalances)
 		r.Post("/accounts", createAccount)
 		r.Patch("/accounts/{accountId}", patchAccount)
 
