@@ -151,67 +151,74 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		catByName[c.Name] = c.ID
 	}
 
-	txDate := extracted.TransactionDate
-	if txDate == "" {
-		txDate = now.Format("2006-01-02")
-	}
-	currency := domain.Currency(extracted.Currency)
-	if currency == "" {
-		currency = domain.CurrencyJPY
+	today := now.Format("2006-01-02")
+
+	// Create candidates for every receipt detected in the photo.
+	// Each physical receipt gets its own subReceiptID so the UI can group them separately.
+	type lineItem struct {
+		name    string
+		amount  int64
+		catName string
 	}
 
-	// Create one candidate per line item.
-	// MerchantName holds the Chinese item name; the store name is on the Receipt.
-	// Fall back to one candidate for the total if no usable line items.
-	type item struct {
-		name     string
-		amount   int64
-		catName  string
-	}
-	var items []item
-	for _, li := range extracted.LineItems {
-		if li.Amount <= 0 {
-			continue
-		}
-		catName := li.CategoryName
-		if catName == "" {
-			catName = "其他支出"
-		}
-		name := li.Name
-		if name == "" {
-			name = extracted.MerchantName
-		}
-		items = append(items, item{name: name, amount: li.Amount, catName: catName})
-	}
-	if len(items) == 0 {
-		items = []item{{name: extracted.MerchantName, amount: extracted.TotalAmount, catName: "其他支出"}}
-	}
+	candidates := make([]*domain.TransactionCandidate, 0)
+	for _, extracted := range extracted.Receipts {
+		subReceiptID := uuid.NewString()
 
-	candidates := make([]*domain.TransactionCandidate, 0, len(items))
-	for _, it := range items {
-		c := &domain.TransactionCandidate{
-			ID:                  uuid.NewString(),
-			ReceiptID:           receiptID,
-			HouseholdID:         claims.HouseholdID,
-			SuggestedActorID:    claims.ActorID,
-			SuggestedType:       domain.TxExpense,
-			SuggestedDate:       txDate,
-			SuggestedAmount:     it.amount,
-			SuggestedCurrency:   currency,
-			SuggestedCategoryID: catByName[it.catName],
-			MerchantName:        it.name,
-			AIUserNote:          receipt.AIUserNote,
-			Confidence:          extracted.Confidence,
-			Warnings:            []domain.CandidateWarning{},
-			Status:              domain.CandidateDraft,
-			CreatedAt:           now,
-			UpdatedAt:           now,
+		txDate := extracted.TransactionDate
+		if txDate == "" {
+			txDate = today
 		}
-		if err := repo.CreateCandidate(r.Context(), c); err != nil {
-			writeAppError(w, domain.NewInternalError(err))
-			return
+		currency := domain.Currency(extracted.Currency)
+		if currency == "" {
+			currency = domain.CurrencyJPY
 		}
-		candidates = append(candidates, c)
+
+		var items []lineItem
+		for _, li := range extracted.LineItems {
+			if li.Amount <= 0 {
+				continue
+			}
+			catName := li.CategoryName
+			if catName == "" {
+				catName = "其他支出"
+			}
+			name := li.Name
+			if name == "" {
+				name = extracted.MerchantName
+			}
+			items = append(items, lineItem{name: name, amount: li.Amount, catName: catName})
+		}
+		if len(items) == 0 {
+			items = []lineItem{{name: extracted.MerchantName, amount: extracted.TotalAmount, catName: "其他支出"}}
+		}
+
+		for _, it := range items {
+			c := &domain.TransactionCandidate{
+				ID:                  uuid.NewString(),
+				ReceiptID:           receiptID,
+				SubReceiptID:        subReceiptID,
+				HouseholdID:         claims.HouseholdID,
+				SuggestedActorID:    claims.ActorID,
+				SuggestedType:       domain.TxExpense,
+				SuggestedDate:       txDate,
+				SuggestedAmount:     it.amount,
+				SuggestedCurrency:   currency,
+				SuggestedCategoryID: catByName[it.catName],
+				MerchantName:        it.name,
+				AIUserNote:          receipt.AIUserNote,
+				Confidence:          extracted.Confidence,
+				Warnings:            []domain.CandidateWarning{},
+				Status:              domain.CandidateDraft,
+				CreatedAt:           now,
+				UpdatedAt:           now,
+			}
+			if err := repo.CreateCandidate(r.Context(), c); err != nil {
+				writeAppError(w, domain.NewInternalError(err))
+				return
+			}
+			candidates = append(candidates, c)
+		}
 	}
 
 	_ = repo.UpdateReceipt(r.Context(), receiptID, map[string]any{

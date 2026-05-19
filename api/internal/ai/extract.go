@@ -20,7 +20,7 @@ type LineItem struct {
 	CategoryName string `json:"categoryName"` // must match allowed category list
 }
 
-// ExtractedReceipt holds the fields parsed from a receipt image.
+// ExtractedReceipt holds the fields parsed from one receipt in an image.
 type ExtractedReceipt struct {
 	MerchantName    string     `json:"merchantName"`
 	TransactionDate string     `json:"transactionDate"` // YYYY-MM-DD
@@ -31,24 +31,35 @@ type ExtractedReceipt struct {
 	LineItems       []LineItem `json:"lineItems"`
 }
 
+// ExtractionResult wraps one or more receipts found in the image.
+type ExtractionResult struct {
+	Receipts []ExtractedReceipt `json:"receipts"`
+}
+
 const systemPrompt = `You are a receipt parser for a private household accounting app used in Japan.
 
-Extract every line item from the receipt and assign each item a category from the allowed list.
+The photo may contain ONE or MULTIPLE physical receipts. Detect each distinct receipt separately.
 Return ONLY this JSON object, no markdown, no explanation:
 
 {
-  "merchantName": <string or "">,
-  "transactionDate": "YYYY-MM-DD",
-  "currency": "JPY",
-  "totalAmount": <integer>,
-  "paymentHint": "cash|paypay|credit_card|unknown",
-  "confidence": <0.0-1.0>,
-  "lineItems": [
-    { "name": <string>, "amount": <integer>, "categoryName": <string> }
+  "receipts": [
+    {
+      "merchantName": <string or "">,
+      "transactionDate": "YYYY-MM-DD",
+      "currency": "JPY",
+      "totalAmount": <integer>,
+      "paymentHint": "cash|paypay|credit_card|unknown",
+      "confidence": <0.0-1.0>,
+      "lineItems": [
+        { "name": <string>, "amount": <integer>, "categoryName": <string> }
+      ]
+    }
   ]
 }
 
 Rules:
+- receipts: one entry per distinct physical receipt visible in the photo.
+  If there is only one receipt, the array has one element.
 - currency: "JPY" if receipt shows ¥ or 円; "CNY" if 元 or 人民币. Default to "JPY".
 - totalAmount: the final paid total in minor units (JPY = integer yen; CNY = integer fen where ¥1.00 = 100).
 - lineItems: one entry per distinct product or service line on the receipt.
@@ -67,9 +78,9 @@ Rules:
 - paymentHint: infer from logos or text (Suica/PayPay → paypay; VISA/Master → credit_card; 現金 → cash).
 - confidence: 1.0 = all fields clearly visible; 0.5 = partially legible; 0.2 = mostly guessing.`
 
-// ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision
-// and returns parsed receipt fields. userNote is optional guidance.
-func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote string) (*ExtractedReceipt, string, error) {
+// ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision and returns
+// all receipts found in the image. userNote is optional guidance.
+func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote string) (*ExtractionResult, string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return nil, "", fmt.Errorf("OPENAI_API_KEY not set")
@@ -100,7 +111,7 @@ func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote 
 		"messages": []map[string]any{
 			{"role": "user", "content": userContent},
 		},
-		"max_tokens":      1024,
+		"max_tokens":      2048,
 		"response_format": map[string]string{"type": "json_object"},
 	}
 
@@ -137,9 +148,12 @@ func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote 
 
 	content := strings.TrimSpace(apiResp.Choices[0].Message.Content)
 
-	var extracted ExtractedReceipt
-	if err := json.Unmarshal([]byte(content), &extracted); err != nil {
+	var result ExtractionResult
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
 		return nil, content, fmt.Errorf("parse extracted JSON: %w", err)
 	}
-	return &extracted, content, nil
+	if len(result.Receipts) == 0 {
+		return nil, content, fmt.Errorf("no receipts extracted")
+	}
+	return &result, content, nil
 }

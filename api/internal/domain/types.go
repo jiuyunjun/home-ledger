@@ -209,6 +209,7 @@ type CandidateWarning struct {
 type TransactionCandidate struct {
 	ID                      string               `json:"id" firestore:"id"`
 	ReceiptID               string               `json:"receiptId" firestore:"receiptId"`
+	SubReceiptID            string               `json:"subReceiptId,omitempty" firestore:"subReceiptId,omitempty"`
 	HouseholdID             string               `json:"householdId" firestore:"householdId"`
 	SuggestedActorID        string               `json:"suggestedActorId,omitempty" firestore:"suggestedActorId,omitempty"`
 	SuggestedType           TransactionType      `json:"suggestedTransactionType" firestore:"suggestedTransactionType"`

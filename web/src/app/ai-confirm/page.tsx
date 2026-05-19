@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 interface Candidate {
   id: string;
   receiptId: string;
+  subReceiptId?: string;
   householdId: string;
   suggestedActorId: string;
   suggestedTransactionType: string;
@@ -242,7 +243,7 @@ function ItemConfRow({ candidate, edit, rejected, first, onEditName, onEditAmoun
 // ─── Receipt group ────────────────────────────────────────────────────────────
 
 function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup }: {
-  group: { receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] };
+  group: { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] };
   itemEdits: Record<string, ItemEdit>;
   receiptEdit: ReceiptEdit;
   rejected: Set<string>;
@@ -460,13 +461,15 @@ export default function AIConfirmPage() {
     setRejected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   }
 
-  // Build receipt groups
-  const groupMap = new Map<string, { receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] }>();
+  // Build receipt groups — key by subReceiptId (one physical receipt within a photo)
+  // falling back to receiptId for candidates created before multi-receipt support.
+  const groupMap = new Map<string, { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] }>();
   for (const c of candidates) {
-    if (!groupMap.has(c.receiptId)) {
-      groupMap.set(c.receiptId, { receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: '', items: [] });
+    const key = c.subReceiptId ?? c.receiptId;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { key, receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: '', items: [] });
     }
-    groupMap.get(c.receiptId)!.items.push(c);
+    groupMap.get(key)!.items.push(c);
   }
   const receiptGroups = Array.from(groupMap.values());
 
@@ -479,7 +482,7 @@ export default function AIConfirmPage() {
     setActing(true);
     try {
       for (const c of active) {
-        const rEdit = receiptEdits[c.receiptId] ?? {};
+        const rEdit = receiptEdits[c.subReceiptId ?? c.receiptId] ?? {};
         const iEdit = itemEdits[c.id] ?? {};
         const body: Record<string, unknown> = {};
         if (rEdit.suggestedTransactionDate)  body.suggestedTransactionDate  = rEdit.suggestedTransactionDate;
@@ -556,12 +559,12 @@ export default function AIConfirmPage() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px 100px' }}>
         {receiptGroups.map((group) => (
-          <ReceiptGroup key={group.receiptId} group={group}
+          <ReceiptGroup key={group.key} group={group}
             itemEdits={itemEdits}
-            receiptEdit={receiptEdits[group.receiptId] ?? {}}
+            receiptEdit={receiptEdits[group.key] ?? {}}
             rejected={rejected}
             onItemEdit={setItemEdit}
-            onReceiptEdit={(patch) => setReceiptEdit(group.receiptId, patch)}
+            onReceiptEdit={(patch) => setReceiptEdit(group.key, patch)}
             onToggleReject={toggleReject}
             onRejectGroup={() => group.items.forEach((c) => setRejected((prev) => new Set([...prev, c.id])))} />
         ))}
