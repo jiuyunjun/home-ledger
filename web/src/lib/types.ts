@@ -85,6 +85,7 @@ export interface ApiTransaction {
   merchantName?: string;
   title?: string;
   memo?: string;
+  receiptId?: string;
   source: 'manual' | 'ai_receipt' | 'recurring';
   createdBy: string;
   createdAt: string;

@@ -52,6 +52,16 @@ export function apiDelete(path: string) {
   return apiFetch<null>(path, { method: 'DELETE' });
 }
 
+export async function apiGetBlob(path: string): Promise<string> {
+  const token = await authToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 // Multipart upload — does NOT set Content-Type (browser sets it with boundary).
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   const token = await authToken();

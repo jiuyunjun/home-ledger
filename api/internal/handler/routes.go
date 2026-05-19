@@ -63,6 +63,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		// Receipt upload + AI extraction
 		r.Post("/receipts/upload", uploadReceipt)
 		r.Get("/receipts/{receiptId}", getReceipt)
+		r.Get("/receipts/{receiptId}/image", getReceiptImage)
 		r.Post("/receipts/{receiptId}/extract", extractReceipt)
 
 		// Transaction candidates (AI review)
@@ -75,6 +76,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Get("/recurring-rules", listRecurringRules)
 		r.Post("/recurring-rules", createRecurringRule)
 		r.Patch("/recurring-rules/{ruleId}", patchRecurringRule)
+		r.Delete("/recurring-rules/{ruleId}", deleteRecurringRule)
 
 		// Monthly budgets (Milestone 11)
 		r.Get("/budgets", listBudgets)

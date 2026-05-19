@@ -105,6 +105,37 @@ func getReceipt(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, receipt)
 }
 
+func getReceiptImage(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+	receiptID := chi.URLParam(r, "receiptId")
+	receipt, err := repo.GetReceipt(r.Context(), receiptID)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if receipt == nil || receipt.HouseholdID != claims.HouseholdID {
+		writeAppError(w, domain.NewNotFoundError("receipt"))
+		return
+	}
+	data, err := storage.Download(r.Context(), receipt.StorageObjectPath)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(fmt.Errorf("download from GCS: %w", err)))
+		return
+	}
+	mimeType := receipt.MIMEType
+	if mimeType == "" {
+		mimeType = "image/jpeg"
+	}
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 func extractReceipt(w http.ResponseWriter, r *http.Request) {
 	claims, ok := domain.ClaimsFromCtx(r.Context())
 	if !ok {

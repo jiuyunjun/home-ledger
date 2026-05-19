@@ -53,3 +53,8 @@ func UpdateRecurringRule(ctx context.Context, id string, updates map[string]any)
 	_, err := fs(ctx).Collection("recurring_rules").Doc(id).Set(ctx, updates, firestore.MergeAll)
 	return err
 }
+
+func DeleteRecurringRule(ctx context.Context, id string) error {
+	_, err := fs(ctx).Collection("recurring_rules").Doc(id).Delete(ctx)
+	return err
+}

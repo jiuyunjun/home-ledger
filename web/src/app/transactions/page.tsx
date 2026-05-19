@@ -7,7 +7,7 @@ import { Amount } from '@/components/ui/Amount';
 import { Card } from '@/components/ui/Card';
 import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
-import { apiDelete, apiGet, apiPatch } from '@/lib/api';
+import { apiDelete, apiGet, apiGetBlob, apiPatch } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import { T, NUM_FONT, CN_FONT } from '@/lib/tokens';
 import type { ApiTransaction } from '@/lib/types';
@@ -75,6 +75,15 @@ function EditSheet({ tx, onSave, onClose }: {
   const [categoryId, setCategoryId] = useState(tx.categoryId ?? '');
   const [showCatPicker, setShowCatPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptExpanded, setReceiptExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!tx.receiptId) return;
+    apiGetBlob(`/api/receipts/${tx.receiptId}/image`)
+      .then(setReceiptUrl)
+      .catch(() => {});
+  }, [tx.receiptId]);
 
   const cat = data.category(categoryId);
   const { mark, tint } = catDisplay(cat?.name ?? '');
@@ -137,6 +146,15 @@ function EditSheet({ tx, onSave, onClose }: {
               placeholder="可选"
               style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
           </div>
+          {receiptUrl && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>小票图片</label>
+              <div onClick={() => setReceiptExpanded((v) => !v)} style={{ cursor: 'pointer', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}` }}>
+                <img src={receiptUrl} alt="小票" style={{ width: '100%', display: 'block', maxHeight: receiptExpanded ? 'none' : 120, objectFit: receiptExpanded ? 'contain' : 'cover', objectPosition: 'top' }} />
+              </div>
+              <div style={{ fontSize: 10, color: T.textMute, textAlign: 'center' }}>{receiptExpanded ? '点击收起' : '点击查看完整小票'}</div>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
           <button onClick={onClose}

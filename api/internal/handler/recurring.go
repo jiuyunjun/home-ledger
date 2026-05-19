@@ -157,3 +157,26 @@ func patchRecurringRule(w http.ResponseWriter, r *http.Request) {
 	updated, _ := repo.GetRecurringRule(r.Context(), id)
 	writeJSON(w, http.StatusOK, updated)
 }
+
+func deleteRecurringRule(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+	id := chi.URLParam(r, "ruleId")
+	rule, err := repo.GetRecurringRule(r.Context(), id)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if rule == nil || rule.HouseholdID != claims.HouseholdID {
+		writeAppError(w, domain.NewNotFoundError("recurring-rule"))
+		return
+	}
+	if err := repo.DeleteRecurringRule(r.Context(), id); err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
