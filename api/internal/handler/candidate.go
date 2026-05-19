@@ -49,12 +49,14 @@ func patchCandidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		SuggestedType       *string  `json:"suggestedTransactionType"`
-		SuggestedDate       *string  `json:"suggestedTransactionDate"`
-		SuggestedAmount     *int64   `json:"suggestedAmount"`
-		SuggestedCurrency   *string  `json:"suggestedCurrency"`
-		SuggestedCategoryID *string  `json:"suggestedCategoryId"`
-		MerchantName        *string  `json:"merchantName"`
+		SuggestedType            *string `json:"suggestedTransactionType"`
+		SuggestedDate            *string `json:"suggestedTransactionDate"`
+		SuggestedAmount          *int64  `json:"suggestedAmount"`
+		SuggestedCurrency        *string `json:"suggestedCurrency"`
+		SuggestedCategoryID      *string `json:"suggestedCategoryId"`
+		SuggestedActorID         *string `json:"suggestedActorId"`
+		SuggestedPaymentMethodID *string `json:"suggestedPaymentMethodId"`
+		MerchantName             *string `json:"merchantName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAppError(w, domain.NewValidationError("invalid request body", ""))
@@ -65,12 +67,14 @@ func patchCandidate(w http.ResponseWriter, r *http.Request) {
 		"status":    string(domain.CandidateEdited),
 		"updatedAt": time.Now().UTC(),
 	}
-	if req.SuggestedType != nil { updates["suggestedTransactionType"] = *req.SuggestedType }
-	if req.SuggestedDate != nil { updates["suggestedTransactionDate"] = *req.SuggestedDate }
-	if req.SuggestedAmount != nil { updates["suggestedAmount"] = *req.SuggestedAmount }
-	if req.SuggestedCurrency != nil { updates["suggestedCurrency"] = *req.SuggestedCurrency }
-	if req.SuggestedCategoryID != nil { updates["suggestedCategoryId"] = *req.SuggestedCategoryID }
-	if req.MerchantName != nil { updates["merchantName"] = *req.MerchantName }
+	if req.SuggestedType != nil            { updates["suggestedTransactionType"]    = *req.SuggestedType }
+	if req.SuggestedDate != nil            { updates["suggestedTransactionDate"]    = *req.SuggestedDate }
+	if req.SuggestedAmount != nil          { updates["suggestedAmount"]             = *req.SuggestedAmount }
+	if req.SuggestedCurrency != nil        { updates["suggestedCurrency"]           = *req.SuggestedCurrency }
+	if req.SuggestedCategoryID != nil      { updates["suggestedCategoryId"]         = *req.SuggestedCategoryID }
+	if req.SuggestedActorID != nil         { updates["suggestedActorId"]            = *req.SuggestedActorID }
+	if req.SuggestedPaymentMethodID != nil { updates["suggestedPaymentMethodId"]    = *req.SuggestedPaymentMethodID }
+	if req.MerchantName != nil             { updates["merchantName"]                = *req.MerchantName }
 
 	if err := repo.UpdateCandidate(r.Context(), id, updates); err != nil {
 		writeAppError(w, domain.NewInternalError(err))

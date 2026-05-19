@@ -13,6 +13,7 @@ import { catDisplay } from '@/lib/catDisplay';
 import { ACCT_KIND } from '@/lib/data';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import type { CreateTransactionRequest } from '@/lib/types';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
@@ -358,6 +359,21 @@ function EntryContent() {
           })}
         </div>
       </div>
+
+      {mode !== 'transfer' && (
+        <div style={{ padding: '8px 16px 0' }}>
+          <Link href="/upload" style={{ textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: T.accentSoft, borderRadius: 10, border: `1px solid ${T.accent}20` }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#fff', fontWeight: 300 }}>↑</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.accent }}>拍照上传小票</div>
+                <div style={{ fontSize: 10, color: T.textMute, marginTop: 1 }}>AI 自动识别，手动确认入账</div>
+              </div>
+              <span style={{ fontSize: 14, color: T.accent }}>›</span>
+            </div>
+          </Link>
+        </div>
+      )}
 
       <div style={{ flex: 1, overflow: 'auto', padding: '4px 16px 80px' }}>
         {mode === 'transfer' ? <TransferForm /> : <ExpenseIncomeForm mode={mode} />}

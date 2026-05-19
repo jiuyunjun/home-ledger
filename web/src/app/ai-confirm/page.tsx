@@ -41,7 +41,101 @@ interface ItemEdit {
 
 interface ReceiptEdit {
   suggestedTransactionDate?: string;
+  suggestedActorId?: string;
+  suggestedCurrency?: string;
+  suggestedPaymentMethodId?: string;
 }
+
+// ─── Bottom-sheet pickers ────────────────────────────────────────────────────
+
+function Backdrop({ onClose }: { onClose: () => void }) {
+  return <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(0,0,0,0.32)' }} />;
+}
+
+function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <>
+      <Backdrop onClose={onClose} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>{title}</div>
+        {children}
+        <div onClick={onClose} style={{ marginTop: 14, textAlign: 'center', fontSize: 12, color: T.textMute, cursor: 'pointer' }}>取消</div>
+      </div>
+    </>
+  );
+}
+
+function CategoryPicker({ currentId, onSelect, onClose }: {
+  currentId: string; onSelect: (id: string) => void; onClose: () => void;
+}) {
+  const data = useData();
+  const cats = data.expenseCategories();
+  return (
+    <Sheet title="选择分类" onClose={onClose}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
+        {cats.map((cat) => {
+          const { mark, tint } = catDisplay(cat.name);
+          const selected = cat.id === currentId;
+          return (
+            <div key={cat.id} onClick={() => { onSelect(cat.id); onClose(); }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', opacity: selected ? 1 : 0.72, width: 48 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600, fontFamily: CN_FONT, color: T.ink, border: selected ? `2px solid ${T.accent}` : '2px solid transparent' }}>{mark}</div>
+              <div style={{ fontSize: 10, color: T.textSoft, whiteSpace: 'nowrap', textAlign: 'center' }}>{cat.name}</div>
+            </div>
+          );
+        })}
+      </div>
+    </Sheet>
+  );
+}
+
+function ActorPicker({ currentId, onSelect, onClose }: {
+  currentId: string; onSelect: (id: string) => void; onClose: () => void;
+}) {
+  const data = useData();
+  return (
+    <Sheet title="选择角色" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {data.actors.map((a) => {
+          const selected = a.id === currentId;
+          return (
+            <div key={a.id} onClick={() => { onSelect(a.id); onClose(); }}
+              style={{ padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${selected ? T.accent : T.border}`, background: selected ? T.accentSoft : T.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 14, color: T.ink, fontWeight: selected ? 600 : 400 }}>{a.displayName}</span>
+              {selected && <span style={{ fontSize: 12, color: T.accent }}>✓</span>}
+            </div>
+          );
+        })}
+      </div>
+    </Sheet>
+  );
+}
+
+function PaymentMethodPicker({ currentId, onSelect, onClose }: {
+  currentId: string; onSelect: (id: string) => void; onClose: () => void;
+}) {
+  const data = useData();
+  const pms = data.paymentMethods.filter((p) => p.isActive);
+  return (
+    <Sheet title="选择支付方式" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {pms.map((pm) => {
+          const selected = pm.id === currentId;
+          return (
+            <div key={pm.id} onClick={() => { onSelect(pm.id); onClose(); }}
+              style={{ padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${selected ? T.accent : T.border}`, background: selected ? T.accentSoft : T.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 14, color: T.ink, fontWeight: selected ? 600 : 400 }}>{pm.name}</span>
+              {selected && <span style={{ fontSize: 12, color: T.accent }}>✓</span>}
+            </div>
+          );
+        })}
+        {pms.length === 0 && <div style={{ textAlign: 'center', color: T.textMute, fontSize: 13 }}>暂无支付方式</div>}
+      </div>
+    </Sheet>
+  );
+}
+
+// ─── Conf badge ──────────────────────────────────────────────────────────────
 
 function ConfBadge({ v }: { v: number }) {
   const color = v >= 0.9 ? T.success : v >= 0.7 ? T.warning : T.danger;
@@ -54,30 +148,7 @@ function ConfBadge({ v }: { v: number }) {
   );
 }
 
-function CategoryPicker({ currentId, onSelect, onClose }: {
-  currentId: string; onSelect: (id: string) => void; onClose: () => void;
-}) {
-  const data = useData();
-  const cats = data.expenseCategories();
-  return (
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.14)', padding: 12 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {cats.map((cat) => {
-          const { mark, tint } = catDisplay(cat.name);
-          const selected = cat.id === currentId;
-          return (
-            <div key={cat.id} onClick={() => { onSelect(cat.id); onClose(); }}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', opacity: selected ? 1 : 0.72 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600, fontFamily: CN_FONT, color: T.ink, border: selected ? `2px solid ${T.accent}` : '2px solid transparent' }}>{mark}</div>
-              <div style={{ fontSize: 9, color: T.textSoft, whiteSpace: 'nowrap' }}>{cat.name}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div onClick={onClose} style={{ marginTop: 10, textAlign: 'center', fontSize: 11, color: T.textMute, cursor: 'pointer' }}>取消</div>
-    </div>
-  );
-}
+// ─── Per-item row ────────────────────────────────────────────────────────────
 
 function ItemConfRow({ candidate, edit, rejected, first, onEditName, onEditAmount, onEditCategory, onToggleReject }: {
   candidate: Candidate;
@@ -108,115 +179,112 @@ function ItemConfRow({ candidate, edit, rejected, first, onEditName, onEditAmoun
   useEffect(() => { if (editingName)   nameRef.current?.focus();   }, [editingName]);
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-      borderTop: first ? 'none' : `1px solid ${T.borderSoft}`,
-      background: warn && !rejected ? `${T.warningSoft}55` : 'transparent',
-      opacity: rejected ? 0.4 : 1,
-      position: 'relative',
-    }}>
-      {/* Category mark + name below */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <div onClick={() => !rejected && setShowCatPicker(true)}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: rejected ? 'default' : 'pointer' }}>
+    <>
+      {showCatPicker && (
+        <CategoryPicker currentId={catId} onSelect={onEditCategory} onClose={() => setShowCatPicker(false)} />
+      )}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+        borderTop: first ? 'none' : `1px solid ${T.borderSoft}`,
+        background: warn && !rejected ? `${T.warningSoft}55` : 'transparent',
+        opacity: rejected ? 0.4 : 1,
+      }}>
+        {/* Category mark + name below */}
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative', cursor: rejected ? 'default' : 'pointer' }}
+          onClick={() => !rejected && setShowCatPicker(true)}>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, fontFamily: CN_FONT, color: T.ink }}>{mark}</div>
           <div style={{ fontSize: 9, color: T.textSoft, fontWeight: 500, whiteSpace: 'nowrap' }}>{cat?.name ?? '未分类'}</div>
+          {warn && (
+            <div style={{ position: 'absolute', top: -4, right: -6, width: 14, height: 14, borderRadius: 7, background: T.warning, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, border: '1.5px solid #fff' }}>!</div>
+          )}
         </div>
-        {warn && (
-          <div style={{ position: 'absolute', top: -3, right: -5, width: 14, height: 14, borderRadius: 7, background: T.warning, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, border: '1.5px solid #fff' }}>!</div>
-        )}
-        {showCatPicker && (
-          <CategoryPicker currentId={catId} onSelect={onEditCategory} onClose={() => setShowCatPicker(false)} />
-        )}
-      </div>
 
-      {/* Item name + conf badge */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {editingName && !rejected ? (
-          <input
-            ref={nameRef}
-            defaultValue={name}
-            onBlur={(e) => { onEditName(e.target.value); setEditingName(false); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') nameRef.current?.blur(); }}
-            style={{ width: '100%', border: `1px solid ${T.accent}`, borderRadius: 6, padding: '3px 6px', fontSize: 13, color: T.ink, outline: 'none', background: T.surfaceAlt }}
-          />
-        ) : (
-          <div onClick={() => !rejected && setEditingName(true)}
-            style={{ fontSize: 13, fontWeight: 500, color: T.ink, cursor: rejected ? 'default' : 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: rejected ? 'line-through' : 'none' }}>
-            {name || '—'}
+        {/* Name + conf */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editingName && !rejected ? (
+            <input ref={nameRef} defaultValue={name}
+              onBlur={(e) => { onEditName(e.target.value); setEditingName(false); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') nameRef.current?.blur(); }}
+              style={{ width: '100%', border: `1px solid ${T.accent}`, borderRadius: 6, padding: '3px 6px', fontSize: 13, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+          ) : (
+            <div onClick={() => !rejected && setEditingName(true)}
+              style={{ fontSize: 13, fontWeight: 500, color: T.ink, cursor: rejected ? 'default' : 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: rejected ? 'line-through' : 'none' }}>
+              {name || '—'}
+            </div>
+          )}
+          <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <ConfBadge v={candidate.confidence} />
+            {warn && !rejected && <span style={{ fontSize: 10, color: T.warning, fontWeight: 500 }}>建议核对</span>}
           </div>
-        )}
-        <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
-          <ConfBadge v={candidate.confidence} />
-          {warn && !rejected && <span style={{ fontSize: 10, color: T.warning, fontWeight: 500 }}>建议核对</span>}
         </div>
-      </div>
 
-      {/* Amount + action */}
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-        {editingAmount && !rejected ? (
-          <input
-            ref={amountRef}
-            type="number"
-            defaultValue={amount}
-            onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) onEditAmount(v); setEditingAmount(false); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') amountRef.current?.blur(); }}
-            style={{ width: 72, border: `1px solid ${T.accent}`, borderRadius: 6, padding: '3px 6px', fontSize: 14, fontFamily: NUM_FONT, fontWeight: 600, textAlign: 'right', outline: 'none', background: T.surfaceAlt }}
-          />
-        ) : (
-          <div onClick={() => !rejected && setEditingAmount(true)} style={{ cursor: rejected ? 'default' : 'text' }}>
-            <Amount value={amount} size={14} weight={600} currency={currency} color={T.ink} />
+        {/* Amount + action */}
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          {editingAmount && !rejected ? (
+            <input ref={amountRef} type="number" defaultValue={amount}
+              onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) onEditAmount(v); setEditingAmount(false); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') amountRef.current?.blur(); }}
+              style={{ width: 72, border: `1px solid ${T.accent}`, borderRadius: 6, padding: '3px 6px', fontSize: 14, fontFamily: NUM_FONT, fontWeight: 600, textAlign: 'right', outline: 'none', background: T.surfaceAlt }} />
+          ) : (
+            <div onClick={() => !rejected && setEditingAmount(true)} style={{ cursor: rejected ? 'default' : 'text' }}>
+              <Amount value={amount} size={14} weight={600} currency={currency} color={T.ink} />
+            </div>
+          )}
+          <div onClick={onToggleReject} style={{ fontSize: 10, cursor: 'pointer', color: rejected ? T.danger : T.textMute, fontWeight: rejected ? 500 : 400 }}>
+            {rejected ? '已排除 ↩' : '编辑 ›'}
           </div>
-        )}
-        <div onClick={onToggleReject} style={{ fontSize: 10, cursor: 'pointer', color: rejected ? T.danger : T.textMute, fontWeight: rejected ? 500 : 400 }}>
-          {rejected ? '已排除 ↩' : '编辑 ›'}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-function ReceiptGroup({
-  group, itemEdits, receiptEdit, rejected,
-  onItemEdit, onReceiptEdit, onReject, onRejectGroup,
-}: {
-  group: { receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; items: Candidate[] };
+// ─── Receipt group ────────────────────────────────────────────────────────────
+
+function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup }: {
+  group: { receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] };
   itemEdits: Record<string, ItemEdit>;
   receiptEdit: ReceiptEdit;
   rejected: Set<string>;
   onItemEdit: (id: string, patch: Partial<ItemEdit>) => void;
   onReceiptEdit: (patch: Partial<ReceiptEdit>) => void;
-  onReject: (id: string) => void;
+  onToggleReject: (id: string) => void;
   onRejectGroup: () => void;
 }) {
   const data = useData();
   const [editingDate, setEditingDate] = useState(false);
+  const [showActorPicker, setShowActorPicker] = useState(false);
+  const [showPmPicker, setShowPmPicker] = useState(false);
   const dateRef = useRef<HTMLInputElement>(null);
 
-  const date = receiptEdit.suggestedTransactionDate ?? group.date;
-  const currency = group.currency as 'JPY' | 'CNY';
-  const actor = data.actor(group.actorId);
-  const avgConf = group.items.reduce((s, c) => s + c.confidence, 0) / group.items.length;
+  const date     = receiptEdit.suggestedTransactionDate ?? group.date;
+  const actorId  = receiptEdit.suggestedActorId ?? group.actorId;
+  const currency = (receiptEdit.suggestedCurrency ?? group.currency) as 'JPY' | 'CNY';
+  const pmId     = receiptEdit.suggestedPaymentMethodId ?? group.paymentMethodId;
+  const actor    = data.actor(actorId);
+  const pm       = data.paymentMethod(pmId);
+
   const activeItems = group.items.filter((c) => !rejected.has(c.id));
   const total = activeItems.reduce((s, c) => s + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount), 0);
+  const avgConf = group.items.reduce((s, c) => s + c.confidence, 0) / group.items.length;
   const lowConfItems = group.items.filter((c) => !rejected.has(c.id) && c.confidence < 0.7);
+  const allRejected = group.items.every((c) => rejected.has(c.id));
 
-  // Category distribution from active items
-  const catMap = new Map<string, { catId: string; amount: number }>();
+  // Category distribution
+  const catMap = new Map<string, number>();
   for (const c of activeItems) {
-    const catId = itemEdits[c.id]?.suggestedCategoryId ?? c.suggestedCategoryId;
-    const amount = itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount;
-    const existing = catMap.get(catId);
-    catMap.set(catId, { catId, amount: (existing?.amount ?? 0) + amount });
+    const cid = itemEdits[c.id]?.suggestedCategoryId ?? c.suggestedCategoryId;
+    catMap.set(cid, (catMap.get(cid) ?? 0) + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount));
   }
-  const catDist = Array.from(catMap.values()).sort((a, b) => b.amount - a.amount);
+  const catDist = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1]);
 
   useEffect(() => { if (editingDate) dateRef.current?.focus(); }, [editingDate]);
 
-  const allRejected = group.items.every((c) => rejected.has(c.id));
-
   return (
     <div style={{ marginBottom: 20 }}>
+      {showActorPicker && <ActorPicker currentId={actorId} onSelect={(id) => onReceiptEdit({ suggestedActorId: id })} onClose={() => setShowActorPicker(false)} />}
+      {showPmPicker && <PaymentMethodPicker currentId={pmId} onSelect={(id) => onReceiptEdit({ suggestedPaymentMethodId: id })} onClose={() => setShowPmPicker(false)} />}
+
       {/* Receipt summary card */}
       <div style={{ display: 'flex', gap: 12, padding: 12, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 10 }}>
         <ReceiptThumb w={60} h={80} label="" />
@@ -224,7 +292,7 @@ function ReceiptGroup({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, flexWrap: 'wrap' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 999, background: T.warningSoft, color: T.warning, fontSize: 10, fontWeight: 600 }}>
               <span style={{ width: 4, height: 4, borderRadius: 2, background: T.warning }} />
-              待确认 · AI 草稿
+              待确认
             </span>
             <TypeBadge type={group.type} />
             <ConfBadge v={avgConf} />
@@ -250,49 +318,55 @@ function ReceiptGroup({
       {/* Shared fields */}
       <SectionLabel right={<span style={{ color: T.textMute, fontSize: 10 }}>可逐项覆盖</span>}>所有项共用</SectionLabel>
       <Card pad={0} style={{ marginBottom: 12 }}>
-        {/* Type row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-          <div style={{ width: 32, fontSize: 11, color: T.textSoft, fontWeight: 500 }}>类型</div>
-          <div style={{ flex: 1 }}><TypeBadge type={group.type} size="md" /></div>
-          <ConfBadge v={0.99} />
-          <span style={{ color: T.textDim, fontSize: 12, marginLeft: 2 }}>›</span>
-        </div>
-        {/* Actor row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: `1px solid ${T.borderSoft}` }}>
-          <div style={{ width: 32, fontSize: 11, color: T.textSoft, fontWeight: 500 }}>角色</div>
-          <div style={{ flex: 1, fontSize: 13, color: T.ink }}>{actor?.displayName ?? '—'}</div>
-          <ConfBadge v={0.88} />
-          <span style={{ color: T.textDim, fontSize: 12, marginLeft: 2 }}>›</span>
-        </div>
-        {/* Date row — editable */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: `1px solid ${T.borderSoft}` }}>
-          <div style={{ width: 32, fontSize: 11, color: T.textSoft, fontWeight: 500 }}>日期</div>
-          <div style={{ flex: 1 }}>
-            {editingDate ? (
-              <input
-                ref={dateRef}
-                type="date"
-                defaultValue={date}
+        {[
+          {
+            label: '类型',
+            content: <TypeBadge type={group.type} size="md" />,
+            tap: undefined,
+          },
+          {
+            label: '角色',
+            content: <span style={{ fontSize: 13, color: T.ink }}>{actor?.displayName ?? '—'}</span>,
+            tap: () => setShowActorPicker(true),
+          },
+          {
+            label: '日期',
+            content: editingDate ? (
+              <input ref={dateRef} type="date" defaultValue={date}
                 onBlur={(e) => { onReceiptEdit({ suggestedTransactionDate: e.target.value }); setEditingDate(false); }}
-                style={{ border: `1px solid ${T.accent}`, borderRadius: 6, padding: '2px 6px', fontSize: 13, color: T.ink, outline: 'none', background: T.surfaceAlt }}
-              />
+                style={{ border: `1px solid ${T.accent}`, borderRadius: 6, padding: '2px 6px', fontSize: 13, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
             ) : (
-              <div onClick={() => setEditingDate(true)} style={{ fontSize: 13, color: T.ink, cursor: 'text' }}>{date}</div>
-            )}
+              <span style={{ fontSize: 13, color: T.ink }}>{date}</span>
+            ),
+            tap: () => setEditingDate(true),
+          },
+          {
+            label: '币种',
+            content: (
+              <div style={{ display: 'inline-flex', gap: 4, padding: 2, background: T.bgSubtle, borderRadius: 6 }}>
+                {(['JPY', 'CNY'] as const).map((cc) => {
+                  const on = cc === currency;
+                  return (
+                    <div key={cc} onClick={(e) => { e.stopPropagation(); onReceiptEdit({ suggestedCurrency: cc }); }}
+                      style={{ padding: '3px 10px', borderRadius: 4, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, fontSize: 11, fontWeight: 600, fontFamily: NUM_FONT, cursor: 'pointer' }}>{cc}</div>
+                  );
+                })}
+              </div>
+            ),
+            tap: undefined,
+          },
+          {
+            label: '账户',
+            content: <span style={{ fontSize: 13, color: T.ink }}>{pm?.name ?? '—'}</span>,
+            tap: () => setShowPmPicker(true),
+          },
+        ].map(({ label, content, tap }, i) => (
+          <div key={label} onClick={tap} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, cursor: tap ? 'pointer' : 'default' }}>
+            <div style={{ width: 32, fontSize: 11, color: T.textSoft, fontWeight: 500 }}>{label}</div>
+            <div style={{ flex: 1 }}>{content}</div>
+            <span style={{ color: T.textDim, fontSize: 12 }}>›</span>
           </div>
-          <ConfBadge v={0.98} />
-          <span style={{ color: T.textDim, fontSize: 12, marginLeft: 2 }}>›</span>
-        </div>
-        {/* Currency row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: `1px solid ${T.borderSoft}` }}>
-          <div style={{ width: 32, fontSize: 11, color: T.textSoft, fontWeight: 500 }}>币种</div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontFamily: NUM_FONT, fontSize: 13, fontWeight: 600, color: T.ink }}>{currency}</span>
-            <span style={{ fontSize: 10, color: T.textMute }}>{currency === 'JPY' ? '¥' : '¥（人民币）'}</span>
-          </div>
-          <ConfBadge v={0.99} />
-          <span style={{ color: T.textDim, fontSize: 12, marginLeft: 2 }}>›</span>
-        </div>
+        ))}
       </Card>
 
       {/* Category distribution */}
@@ -303,7 +377,7 @@ function ReceiptGroup({
           </SectionLabel>
           <Card pad={12} style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {catDist.map(({ catId, amount }) => {
+              {catDist.map(([catId, amount]) => {
                 const cat = data.category(catId);
                 const { mark, tint } = catDisplay(cat?.name ?? '');
                 return (
@@ -325,23 +399,15 @@ function ReceiptGroup({
           <span onClick={onRejectGroup} style={{ color: T.danger, fontSize: 10, cursor: 'pointer', fontWeight: 500 }}>全部排除</span>
         )
       }>每项分类（AI）</SectionLabel>
-      <Card pad={0} style={{ marginBottom: 12, overflow: 'hidden' }}>
+      <Card pad={0} style={{ marginBottom: 12, overflow: 'visible' }}>
         {group.items.map((c, i) => (
-          <ItemConfRow
-            key={c.id}
-            candidate={c}
-            edit={itemEdits[c.id] ?? {}}
-            rejected={rejected.has(c.id)}
-            first={i === 0}
+          <ItemConfRow key={c.id} candidate={c} edit={itemEdits[c.id] ?? {}} rejected={rejected.has(c.id)} first={i === 0}
             onEditName={(v) => onItemEdit(c.id, { merchantName: v })}
             onEditAmount={(v) => onItemEdit(c.id, { suggestedAmount: v })}
             onEditCategory={(id) => onItemEdit(c.id, { suggestedCategoryId: id })}
-            onToggleReject={() => onReject(c.id)}
-          />
+            onToggleReject={() => onToggleReject(c.id)} />
         ))}
-        {allRejected && (
-          <div style={{ padding: '14px 12px', fontSize: 12, color: T.textMute, textAlign: 'center' }}>已全部排除</div>
-        )}
+        {allRejected && <div style={{ padding: '14px 12px', fontSize: 12, color: T.textMute, textAlign: 'center' }}>已全部排除</div>}
       </Card>
 
       {/* Low confidence warning */}
@@ -349,13 +415,15 @@ function ReceiptGroup({
         <div style={{ background: T.warningSoft, padding: '10px 12px', borderRadius: 10, display: 'flex', gap: 8, marginBottom: 4 }}>
           <div style={{ width: 18, height: 18, borderRadius: 9, flexShrink: 0, background: T.warning, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>!</div>
           <div style={{ fontSize: 11, color: T.ink, lineHeight: 1.5 }}>
-            <strong>{lowConfItems.length} 个商品</strong>分类置信度较低，请点击分类图标核对，AI 不会自动入账。
+            <strong>{lowConfItems.length} 个商品</strong>分类置信度较低，请点击分类图标核对。
           </div>
         </div>
       )}
     </div>
   );
 }
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AIConfirmPage() {
   const router = useRouter();
@@ -389,26 +457,14 @@ export default function AIConfirmPage() {
     setReceiptEdits((prev) => ({ ...prev, [receiptId]: { ...prev[receiptId], ...patch } }));
   }
   function toggleReject(id: string) {
-    setRejected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setRejected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   }
 
   // Build receipt groups
-  const groupMap = new Map<string, { receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; items: Candidate[] }>();
+  const groupMap = new Map<string, { receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] }>();
   for (const c of candidates) {
     if (!groupMap.has(c.receiptId)) {
-      groupMap.set(c.receiptId, {
-        receiptId: c.receiptId,
-        date: c.suggestedTransactionDate,
-        type: c.suggestedTransactionType,
-        currency: c.suggestedCurrency,
-        actorId: c.suggestedActorId,
-        hint: c.aiUserNote,
-        items: [],
-      });
+      groupMap.set(c.receiptId, { receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: '', items: [] });
     }
     groupMap.get(c.receiptId)!.items.push(c);
   }
@@ -416,7 +472,7 @@ export default function AIConfirmPage() {
 
   const active = candidates.filter((c) => !rejected.has(c.id));
   const totalActive = active.reduce((s, c) => s + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount), 0);
-  const primaryCurrency = (candidates[0]?.suggestedCurrency ?? 'JPY') as 'JPY' | 'CNY';
+  const primaryCurrency = ((receiptGroups[0] && (receiptEdits[receiptGroups[0].receiptId]?.suggestedCurrency ?? receiptGroups[0].currency)) ?? 'JPY') as 'JPY' | 'CNY';
 
   async function handleConfirmAll() {
     if (acting || active.length === 0) return;
@@ -426,13 +482,14 @@ export default function AIConfirmPage() {
         const rEdit = receiptEdits[c.receiptId] ?? {};
         const iEdit = itemEdits[c.id] ?? {};
         const body: Record<string, unknown> = {};
-        if (rEdit.suggestedTransactionDate) body.suggestedTransactionDate = rEdit.suggestedTransactionDate;
-        if (iEdit.merchantName !== undefined)        body.merchantName = iEdit.merchantName;
-        if (iEdit.suggestedAmount !== undefined)     body.suggestedAmount = iEdit.suggestedAmount;
-        if (iEdit.suggestedCategoryId !== undefined) body.suggestedCategoryId = iEdit.suggestedCategoryId;
-        if (Object.keys(body).length > 0) {
-          await apiPatch(`/api/transaction-candidates/${c.id}`, body);
-        }
+        if (rEdit.suggestedTransactionDate)  body.suggestedTransactionDate  = rEdit.suggestedTransactionDate;
+        if (rEdit.suggestedActorId)          body.suggestedActorId          = rEdit.suggestedActorId;
+        if (rEdit.suggestedCurrency)         body.suggestedCurrency         = rEdit.suggestedCurrency;
+        if (rEdit.suggestedPaymentMethodId)  body.suggestedPaymentMethodId  = rEdit.suggestedPaymentMethodId;
+        if (iEdit.merchantName !== undefined)        body.merchantName            = iEdit.merchantName;
+        if (iEdit.suggestedAmount !== undefined)     body.suggestedAmount         = iEdit.suggestedAmount;
+        if (iEdit.suggestedCategoryId !== undefined) body.suggestedCategoryId     = iEdit.suggestedCategoryId;
+        if (Object.keys(body).length > 0) await apiPatch(`/api/transaction-candidates/${c.id}`, body);
         await apiPost(`/api/transaction-candidates/${c.id}/confirm`, {});
       }
       for (const id of rejected) {
@@ -448,7 +505,17 @@ export default function AIConfirmPage() {
 
   async function handleRejectAll() {
     if (acting) return;
-    setRejected(new Set(candidates.map((c) => c.id)));
+    setActing(true);
+    try {
+      for (const c of active) {
+        await apiPost(`/api/transaction-candidates/${c.id}/reject`, {});
+      }
+      router.push('/upload');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActing(false);
+    }
   }
 
   if (loading) {
@@ -479,7 +546,7 @@ export default function AIConfirmPage() {
     <PhoneScreen>
       <AppBar
         title="确认入账"
-        subtitle={`${active.length} 项待确认 · 每项 AI 已分类，请核对`}
+        subtitle={`${active.length} 项待确认 · AI 草稿`}
         left={
           <Link href="/upload" style={{ textDecoration: 'none' }}>
             <div style={{ fontSize: 18, color: T.textSoft, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</div>
@@ -489,21 +556,17 @@ export default function AIConfirmPage() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px 100px' }}>
         {receiptGroups.map((group) => (
-          <ReceiptGroup
-            key={group.receiptId}
-            group={group}
+          <ReceiptGroup key={group.receiptId} group={group}
             itemEdits={itemEdits}
             receiptEdit={receiptEdits[group.receiptId] ?? {}}
             rejected={rejected}
             onItemEdit={setItemEdit}
             onReceiptEdit={(patch) => setReceiptEdit(group.receiptId, patch)}
-            onReject={toggleReject}
-            onRejectGroup={() => group.items.forEach((c) => setRejected((prev) => new Set([...prev, c.id])))}
-          />
+            onToggleReject={toggleReject}
+            onRejectGroup={() => group.items.forEach((c) => setRejected((prev) => new Set([...prev, c.id])))} />
         ))}
-
         <div style={{ fontSize: 11, color: T.textMute, textAlign: 'center', marginTop: 4 }}>
-          点击分类图标可修改 · 点击名称或金额可编辑 · 点击"编辑 ›"可排除
+          点击分类图标修改 · 点击名称或金额编辑 · 点击"编辑 ›"排除此项
         </div>
       </div>
 

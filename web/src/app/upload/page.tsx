@@ -190,6 +190,11 @@ export default function UploadPage() {
             <div style={{ fontSize: 18, color: T.textSoft, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</div>
           </Link>
         }
+        right={
+          <Link href="/ai-confirm" style={{ textDecoration: 'none' }}>
+            <div style={{ fontSize: 11, color: T.accent, fontWeight: 600, padding: '4px 8px', borderRadius: 6, background: T.accentSoft }}>待确认 ›</div>
+          </Link>
+        }
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px 80px' }}>
