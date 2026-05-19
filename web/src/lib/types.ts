@@ -82,6 +82,7 @@ export interface ApiTransaction {
   paymentMethodId?: string;
   fromAccountId?: string;
   toAccountId?: string;
+  merchantName?: string;
   title?: string;
   memo?: string;
   source: 'manual' | 'ai_receipt' | 'recurring';
