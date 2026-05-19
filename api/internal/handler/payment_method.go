@@ -118,3 +118,28 @@ func patchPaymentMethod(w http.ResponseWriter, r *http.Request) {
 	updated, _ := repo.GetPaymentMethod(r.Context(), pmID)
 	writeJSON(w, http.StatusOK, updated)
 }
+
+func deletePaymentMethod(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+
+	pmID := chi.URLParam(r, "paymentMethodId")
+	pm, err := repo.GetPaymentMethod(r.Context(), pmID)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if pm == nil || pm.HouseholdID != claims.HouseholdID {
+		writeAppError(w, domain.NewNotFoundError("payment method"))
+		return
+	}
+
+	if err := repo.DeletePaymentMethod(r.Context(), pmID); err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}

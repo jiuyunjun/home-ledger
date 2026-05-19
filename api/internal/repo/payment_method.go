@@ -53,3 +53,8 @@ func UpdatePaymentMethod(ctx context.Context, id string, updates map[string]any)
 	_, err := fs(ctx).Collection("paymentMethods").Doc(id).Set(ctx, updates, firestore.MergeAll)
 	return err
 }
+
+func DeletePaymentMethod(ctx context.Context, id string) error {
+	_, err := fs(ctx).Collection("paymentMethods").Doc(id).Delete(ctx)
+	return err
+}
