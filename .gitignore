@@ -20,8 +20,9 @@ Thumbs.db
 /api/bin/
 *.exe
 
-# Firebase credentials — never commit
+# Firebase / GCP service account keys — never commit
 /api/credentials/
+/api/*.json
 
 # Node
 node_modules/

@@ -105,12 +105,14 @@ export default function DashboardPage() {
   const load = useCallback(async (m: string) => {
     setLoading(true);
     try {
-      const [list, usageResp] = await Promise.all([
+      const [list, usageResp, balances] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?month=${m}`),
         apiGet<{ month: string; items: BudgetUsageItem[] }>(`/api/budgets/usage?month=${m}`),
+        apiGet<Record<string, number>>('/api/accounts/balances'),
       ]);
       setTxs(list);
       setUsageItems(usageResp.items);
+      setAccountBalances(balances);
     } catch (e) {
       console.error(e);
     } finally {
@@ -119,12 +121,6 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { load(month); }, [month, load]);
-
-  useEffect(() => {
-    apiGet<Record<string, number>>('/api/accounts/balances')
-      .then(setAccountBalances)
-      .catch(console.error);
-  }, []);
 
   // Selected actor filter (from RoleSwitcher via AppContext)
   const selectedActorId = state.currentRole || data.me?.actorId || '';

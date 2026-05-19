@@ -134,6 +134,9 @@ export interface CreateTransactionRequest {
   paymentMethodId?: string;
   fromAccountId?: string;
   toAccountId?: string;
+  convertedAmount?: number;
+  convertedCurrency?: Currency;
+  exchangeRate?: string;
   title?: string;
   memo?: string;
 }

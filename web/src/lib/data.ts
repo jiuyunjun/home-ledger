@@ -28,7 +28,7 @@ export interface Currency {
 
 export const CURRENCIES: Record<string, Currency> = {
   JPY: { code: 'JPY', symbol: '¥', decimals: 0, locale: 'en-US' },
-  CNY: { code: 'CNY', symbol: '¥', decimals: 2, locale: 'zh-CN', suffix: 'CNY' },
+  CNY: { code: 'CNY', symbol: '¥', decimals: 0, locale: 'zh-CN', suffix: 'CNY' },
 };
 
 export function fmtAmount(value: number, currency = 'JPY'): string {

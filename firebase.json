@@ -7,6 +7,16 @@
     "public": "web/out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "cleanUrls": true,
-    "trailingSlash": false
+    "trailingSlash": false,
+    "rewrites": [
+      { "source": "/settings/__next.settings.__PAGE__.txt", "destination": "/settings/__next.settings/__PAGE__.txt" },
+      { "source": "/budget/__next.budget.__PAGE__.txt", "destination": "/budget/__next.budget/__PAGE__.txt" },
+      { "source": "/entry/__next.entry.__PAGE__.txt", "destination": "/entry/__next.entry/__PAGE__.txt" },
+      { "source": "/fixed/__next.fixed.__PAGE__.txt", "destination": "/fixed/__next.fixed/__PAGE__.txt" },
+      { "source": "/login/__next.login.__PAGE__.txt", "destination": "/login/__next.login/__PAGE__.txt" },
+      { "source": "/transactions/__next.transactions.__PAGE__.txt", "destination": "/transactions/__next.transactions/__PAGE__.txt" },
+      { "source": "/upload/__next.upload.__PAGE__.txt", "destination": "/upload/__next.upload/__PAGE__.txt" },
+      { "source": "/ai-confirm/__next.ai-confirm.__PAGE__.txt", "destination": "/ai-confirm/__next.ai-confirm/__PAGE__.txt" }
+    ]
   }
 }

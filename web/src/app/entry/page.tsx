@@ -15,7 +15,7 @@ import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import type { CreateTransactionRequest } from '@/lib/types';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 type Mode = 'expense' | 'income' | 'transfer';
 
@@ -98,7 +98,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const defaultCatId = catId || cats[0]?.id || '';
   const defaultPmId = pmId || pms[0]?.id || '';
 
-  const amount = currency === 'JPY' ? Math.round(parseFloat(amountStr) || 0) : parseFloat(amountStr) || 0;
+  const amount = Math.round(parseFloat(amountStr) || 0);
   const today = new Date().toISOString().slice(0, 10);
 
   async function handleSave() {
@@ -216,6 +216,16 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   );
 }
 
+async function fetchExchangeRate(from: 'CNY' | 'JPY', to: 'CNY' | 'JPY'): Promise<number | null> {
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${from}`);
+    const data = await res.json();
+    return data?.rates?.[to] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function TransferForm() {
   const data = useData();
   const router = useRouter();
@@ -224,6 +234,10 @@ function TransferForm() {
   const [fromAcctId, setFromAcctId] = useState('');
   const [toAcctId, setToAcctId] = useState('');
   const [fromAmount, setFromAmount] = useState('');
+  const [toAmount, setToAmount] = useState('');
+  const [rateStr, setRateStr] = useState('');
+  const [rateFetching, setRateFetching] = useState(false);
+  const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -231,21 +245,71 @@ function TransferForm() {
   const defaultTo = toAcctId || accounts[1]?.id || '';
   const fromAcct = data.account(defaultFrom);
   const toAcct = data.account(defaultTo);
+  const fromCur = (fromAcct?.currency ?? 'JPY') as 'JPY' | 'CNY';
+  const toCur = (toAcct?.currency ?? 'JPY') as 'JPY' | 'CNY';
+  const isCross = fromCur !== toCur;
+  const isSameAcct = defaultFrom === defaultTo;
   const fromAmt = Math.round(parseFloat(fromAmount) || 0);
+  const toAmt = Math.round(parseFloat(toAmount) || 0);
   const today = new Date().toISOString().slice(0, 10);
 
+  // Auto-fetch rate when cross-currency pair changes
+  useEffect(() => {
+    if (!isCross) { setToAmount(''); setRateStr(''); return; }
+    setRateFetching(true);
+    fetchExchangeRate(fromCur, toCur).then((rate) => {
+      setRateFetching(false);
+      if (rate !== null) {
+        setRateStr(String(rate));
+        if (fromAmt > 0) {
+          const converted = toCur === 'JPY' ? Math.round(fromAmt * rate) : parseFloat((fromAmt * rate).toFixed(2));
+          setToAmount(String(converted));
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromCur, toCur, isCross]);
+
+  // Recalculate toAmount when fromAmount or rateStr changes (only if user hasn't manually edited toAmount)
+  function handleFromAmountChange(v: string) {
+    setFromAmount(v.replace(/[^\d.]/g, ''));
+    if (isCross && rateStr) {
+      const rate = parseFloat(rateStr);
+      const amt = parseFloat(v) || 0;
+      if (rate > 0 && amt > 0) {
+        const converted = toCur === 'JPY' ? Math.round(amt * rate) : parseFloat((amt * rate).toFixed(2));
+        setToAmount(String(converted));
+      }
+    }
+  }
+
+  function handleRateChange(v: string) {
+    setRateStr(v.replace(/[^\d.]/g, ''));
+    const rate = parseFloat(v) || 0;
+    if (rate > 0 && fromAmt > 0) {
+      const converted = toCur === 'JPY' ? Math.round(fromAmt * rate) : parseFloat((fromAmt * rate).toFixed(2));
+      setToAmount(String(converted));
+    }
+  }
+
   async function handleSave() {
-    if (fromAmt <= 0 || saving) return;
+    if (fromAmt <= 0 || saving || isSameAcct) return;
     setSaving(true);
     try {
       const req: CreateTransactionRequest = {
         transactionType: 'transfer',
-        transactionDate: today,
+        transactionDate: txDate,
         amount: fromAmt,
-        currency: fromAcct?.currency ?? 'JPY',
+        currency: fromCur,
         fromAccountId: defaultFrom,
         toAccountId: defaultTo,
+        memo: note || undefined,
       };
+      if (isCross && toAmt > 0) {
+        req.convertedAmount = toAmt;
+        req.convertedCurrency = toCur;
+        req.exchangeRate = rateStr || undefined;
+      }
       await apiPost('/api/transactions', req);
       router.push('/transactions');
     } catch (e) {
@@ -258,11 +322,11 @@ function TransferForm() {
   return (
     <>
       <div style={{ padding: '14px 0' }}>
-        <AcctCard label="转出账户" name={fromAcct?.name ?? '—'} currency={fromAcct?.currency ?? 'JPY'} amount={fromAmt} />
+        <AcctCard label="转出账户" name={fromAcct?.name ?? '—'} currency={fromCur} amount={fromAmt} />
         <div style={{ textAlign: 'center', margin: '4px 0' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 15, background: T.surface, border: `1px solid ${T.border}`, color: T.transfer, fontSize: 14, fontWeight: 600 }}>↓</div>
         </div>
-        <AcctCard label="转入账户" name={toAcct?.name ?? '—'} currency={toAcct?.currency ?? 'JPY'} amount={fromAmt} highlight />
+        <AcctCard label="转入账户" name={toAcct?.name ?? '—'} currency={toCur} amount={isCross ? toAmt : fromAmt} highlight />
       </div>
 
       {accounts.length > 1 && (
@@ -289,19 +353,48 @@ function TransferForm() {
         </Row>
       )}
 
-      <Row label="转账金额">
+      <Row label={`转出金额（${fromCur}）`}>
         <input
           type="text"
           inputMode="decimal"
           value={fromAmount}
-          onChange={(e) => setFromAmount(e.target.value.replace(/[^\d.]/g, ''))}
+          onChange={(e) => handleFromAmountChange(e.target.value)}
           placeholder="0"
           style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 18, fontWeight: 600, color: T.ink, outline: 'none', boxSizing: 'border-box', fontFamily: NUM_FONT }}
         />
       </Row>
 
+      {isCross && (
+        <>
+          <Row label={`今日汇率（1 ${fromCur} = ? ${toCur}）`}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={rateStr}
+                onChange={(e) => handleRateChange(e.target.value)}
+                placeholder={rateFetching ? '获取中…' : '手动输入'}
+                style={{ flex: 1, padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink, outline: 'none', fontFamily: NUM_FONT }}
+              />
+              {rateFetching && <span style={{ fontSize: 11, color: T.textMute }}>获取中…</span>}
+            </div>
+          </Row>
+          <Row label={`转入金额（${toCur}）`}>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={toAmount}
+              onChange={(e) => setToAmount(e.target.value.replace(/[^\d.]/g, ''))}
+              placeholder="0"
+              style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 18, fontWeight: 600, color: T.transfer, outline: 'none', boxSizing: 'border-box', fontFamily: NUM_FONT }}
+            />
+          </Row>
+        </>
+      )}
+
       <Row label="日期">
-        <div style={{ padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink }}>{today}</div>
+        <input type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)}
+          style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box' }} />
       </Row>
 
       <Row label="备注">
@@ -314,13 +407,19 @@ function TransferForm() {
         />
       </Row>
 
+      {isSameAcct && (
+        <div style={{ padding: 10, background: '#FEF3F2', borderRadius: 8, fontSize: 12, color: T.danger }}>
+          转出和转入账户不能相同
+        </div>
+      )}
+
       <div style={{ marginTop: 8, padding: 10, background: T.bgSubtle, borderRadius: 8, fontSize: 11, color: T.textSoft, lineHeight: 1.5 }}>
         <strong style={{ color: T.ink }}>提示：</strong>账户转换不计入本月支出 / 入账，不消耗预算，只调整账户余额。
       </div>
 
       <div style={{ padding: '10px 0 18px', display: 'flex', gap: 8, marginTop: 8 }}>
         <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={() => router.back()}>取消</Button>
-        <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave} disabled={saving}>
+        <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave} disabled={saving || isSameAcct}>
           {saving ? '保存中…' : '保存转账'}
         </Button>
       </div>

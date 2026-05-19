@@ -13,17 +13,20 @@ import (
 
 // createTransactionRequest is the request body for POST /api/transactions.
 type createTransactionRequest struct {
-	TransactionType  domain.TransactionType `json:"transactionType"`
-	TransactionDate  string                 `json:"transactionDate"` // YYYY-MM-DD
-	Amount           int64                  `json:"amount"`
-	Currency         domain.Currency        `json:"currency"`
-	ActorID          string                 `json:"actorId"`
-	CategoryID       string                 `json:"categoryId,omitempty"`
-	PaymentMethodID  string                 `json:"paymentMethodId,omitempty"`
-	FromAccountID    string                 `json:"fromAccountId,omitempty"`
-	ToAccountID      string                 `json:"toAccountId,omitempty"`
-	Title            string                 `json:"title,omitempty"`
-	Memo             string                 `json:"memo,omitempty"`
+	TransactionType   domain.TransactionType `json:"transactionType"`
+	TransactionDate   string                 `json:"transactionDate"` // YYYY-MM-DD
+	Amount            int64                  `json:"amount"`
+	Currency          domain.Currency        `json:"currency"`
+	ActorID           string                 `json:"actorId"`
+	CategoryID        string                 `json:"categoryId,omitempty"`
+	PaymentMethodID   string                 `json:"paymentMethodId,omitempty"`
+	FromAccountID     string                 `json:"fromAccountId,omitempty"`
+	ToAccountID       string                 `json:"toAccountId,omitempty"`
+	ConvertedAmount   int64                  `json:"convertedAmount,omitempty"`
+	ConvertedCurrency domain.Currency        `json:"convertedCurrency,omitempty"`
+	ExchangeRate      string                 `json:"exchangeRate,omitempty"`
+	Title             string                 `json:"title,omitempty"`
+	Memo              string                 `json:"memo,omitempty"`
 }
 
 func listTransactions(w http.ResponseWriter, r *http.Request) {
@@ -92,23 +95,26 @@ func createTransaction(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 	tx := &domain.Transaction{
-		ID:              uuid.NewString(),
-		HouseholdID:     claims.HouseholdID,
-		ActorID:         actorID,
-		TransactionType: req.TransactionType,
-		TransactionDate: req.TransactionDate,
-		Amount:          req.Amount,
-		Currency:        req.Currency,
-		CategoryID:      req.CategoryID,
-		PaymentMethodID: req.PaymentMethodID,
-		FromAccountID:   req.FromAccountID,
-		ToAccountID:     req.ToAccountID,
-		Title:           req.Title,
-		Memo:            req.Memo,
-		Source:          domain.SourceManual,
-		CreatedBy:       claims.UID,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                uuid.NewString(),
+		HouseholdID:       claims.HouseholdID,
+		ActorID:           actorID,
+		TransactionType:   req.TransactionType,
+		TransactionDate:   req.TransactionDate,
+		Amount:            req.Amount,
+		Currency:          req.Currency,
+		CategoryID:        req.CategoryID,
+		PaymentMethodID:   req.PaymentMethodID,
+		FromAccountID:     req.FromAccountID,
+		ToAccountID:       req.ToAccountID,
+		ConvertedAmount:   req.ConvertedAmount,
+		ConvertedCurrency: req.ConvertedCurrency,
+		ExchangeRate:      req.ExchangeRate,
+		Title:             req.Title,
+		Memo:              req.Memo,
+		Source:            domain.SourceManual,
+		CreatedBy:         claims.UID,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 
 	if err := repo.CreateTransaction(r.Context(), tx); err != nil {

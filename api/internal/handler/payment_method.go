@@ -130,6 +130,19 @@ func getPaymentMethodBalances(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	pms, err := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	// accountId → pmId for transfer delta lookup
+	acctToPM := make(map[string]string, len(pms))
+	for _, pm := range pms {
+		if pm.AccountID != "" {
+			acctToPM[pm.AccountID] = pm.ID
+		}
+	}
+
 	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
 	if err != nil {
 		writeAppError(w, domain.NewInternalError(err))
@@ -138,14 +151,26 @@ func getPaymentMethodBalances(w http.ResponseWriter, r *http.Request) {
 
 	balances := map[string]int64{}
 	for _, tx := range txs {
-		if tx.PaymentMethodID == "" {
-			continue
-		}
 		switch tx.TransactionType {
 		case domain.TxIncome:
-			balances[tx.PaymentMethodID] += tx.Amount
+			if tx.PaymentMethodID != "" {
+				balances[tx.PaymentMethodID] += tx.Amount
+			}
 		case domain.TxExpense:
-			balances[tx.PaymentMethodID] -= tx.Amount
+			if tx.PaymentMethodID != "" {
+				balances[tx.PaymentMethodID] -= tx.Amount
+			}
+		case domain.TxTransfer:
+			if pmID, ok := acctToPM[tx.FromAccountID]; ok {
+				balances[pmID] -= tx.Amount
+			}
+			if pmID, ok := acctToPM[tx.ToAccountID]; ok {
+				credit := tx.Amount
+				if tx.ConvertedAmount > 0 {
+					credit = tx.ConvertedAmount
+				}
+				balances[pmID] += credit
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, balances)

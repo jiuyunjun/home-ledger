@@ -61,7 +61,11 @@ func getAccountBalances(w http.ResponseWriter, r *http.Request) {
 				delta[tx.FromAccountID] -= tx.Amount
 			}
 			if tx.ToAccountID != "" {
-				delta[tx.ToAccountID] += tx.Amount
+				credit := tx.Amount
+				if tx.ConvertedAmount > 0 {
+					credit = tx.ConvertedAmount
+				}
+				delta[tx.ToAccountID] += credit
 			}
 		}
 	}

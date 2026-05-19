@@ -380,7 +380,9 @@ export default function SettingsPage() {
     apiGet<Record<string, number>>('/api/payment-methods/balances')
       .then(setPmBalances)
       .catch(() => {});
-  }, []);
+  // Re-fetch whenever payment methods list changes (e.g. after data.refresh)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.paymentMethods]);
 
   async function handleSignOut() {
     setSigningOut(true);

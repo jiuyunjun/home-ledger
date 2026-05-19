@@ -40,8 +40,8 @@ function CategoryPicker({ currentId, onSelect, onClose }: {
   const cats = data.expenseCategories();
   return (
     <>
-      <Backdrop onClose={onClose} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.32)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 101, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>选择分类</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
           {cats.map((cat) => {
@@ -100,7 +100,7 @@ function EditSheet({ tx, onSave, onClose }: {
         <CategoryPicker currentId={categoryId} onSelect={setCategoryId} onClose={() => setShowCatPicker(false)} />
       )}
       <Backdrop onClose={onClose} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 97, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 18 }}>编辑记录</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
