@@ -272,7 +272,7 @@ function TransferForm() {
       </div>
 
       <div style={{ padding: '10px 0 18px', display: 'flex', gap: 8, marginTop: 8 }}>
-        <Button variant="secondary" size="lg" style={{ flex: 1 }}>取消</Button>
+        <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={() => router.back()}>取消</Button>
         <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave}>保存转账</Button>
       </div>
     </>
@@ -281,6 +281,7 @@ function TransferForm() {
 
 function EntryContent() {
   const params = useSearchParams();
+  const router = useRouter();
   const mode = (params.get('mode') as Mode) ?? 'expense';
 
   const title = mode === 'transfer' ? '账户转换' : mode === 'income' ? '入账' : '新增支出';
@@ -289,7 +290,12 @@ function EntryContent() {
     <PhoneScreen>
       <AppBar
         title={title}
-        left={<div style={{ fontSize: 20, color: T.textSoft, fontWeight: 300, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</div>}
+        left={
+          <div
+            onClick={() => router.back()}
+            style={{ fontSize: 20, color: T.textSoft, fontWeight: 300, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >×</div>
+        }
         right={<div style={{ fontSize: 13, color: T.textMute, fontWeight: 500 }}>草稿</div>}
       />
 
