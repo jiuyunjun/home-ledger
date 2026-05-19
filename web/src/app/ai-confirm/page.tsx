@@ -511,7 +511,7 @@ export default function AIConfirmPage() {
     if (acting) return;
     setActing(true);
     try {
-      for (const c of active) {
+      for (const c of candidates) {
         await apiPost(`/api/transaction-candidates/${c.id}/reject`, {});
       }
       router.push('/upload');
