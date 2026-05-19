@@ -1,3 +1,5 @@
+'use client';
+
 import { AppBar } from '@/components/layout/AppBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PhoneScreen } from '@/components/layout/PhoneScreen';
@@ -5,7 +7,8 @@ import { Amount } from '@/components/ui/Amount';
 import { Card } from '@/components/ui/Card';
 import { CatMark } from '@/components/ui/CatMark';
 import { SectionLabel } from '@/components/ui/SectionLabel';
-import { BUDGETS, catById, roleById } from '@/lib/data';
+import { useApp } from '@/context/AppContext';
+import { Budget, catById, roleById } from '@/lib/data';
 import { NUM_FONT, T } from '@/lib/tokens';
 
 function SumChip({ color, bg, label, count }: { color: string; bg: string; label: string; count: number }) {
@@ -17,7 +20,7 @@ function SumChip({ color, bg, label, count }: { color: string; bg: string; label
   );
 }
 
-function BudgetRow({ b }: { b: typeof BUDGETS[number] }) {
+function BudgetRow({ b }: { b: Budget }) {
   const c = catById(b.cat);
   const pct = b.used / b.limit;
   const over = pct >= 1;
@@ -64,20 +67,23 @@ function BudgetRow({ b }: { b: typeof BUDGETS[number] }) {
 }
 
 export default function BudgetPage() {
-  const enabled = BUDGETS.filter((b) => b.enabled);
+  const { state } = useApp();
+  const { budgets } = state;
+
+  const enabled = budgets.filter((b) => b.enabled);
   const total = enabled.reduce((a, b) => a + b.limit, 0);
   const used  = enabled.reduce((a, b) => a + b.used, 0);
   const overall = used / total;
 
-  const getStatus = (b: typeof BUDGETS[number]) => {
+  const getStatus = (b: Budget) => {
     const p = b.used / b.limit;
     return p >= 1 ? 0 : p >= b.threshold ? 1 : 2;
   };
-  const sorted = [...BUDGETS].sort((a, b) => getStatus(a) - getStatus(b));
+  const sorted = [...budgets].sort((a, b) => getStatus(a) - getStatus(b));
 
   const overCount = enabled.filter((b) => b.used / b.limit >= 1).length;
   const nearCount = enabled.filter((b) => { const p = b.used / b.limit; return p >= b.threshold && p < 1; }).length;
-  const okCount = enabled.filter((b) => b.used / b.limit < b.threshold).length;
+  const okCount   = enabled.filter((b) => b.used / b.limit < b.threshold).length;
 
   return (
     <PhoneScreen>

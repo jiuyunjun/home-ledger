@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const catTotal = topCats.reduce((a, b) => a + b.amount, 0);
 
   const budgetAlerts = budgets
-    .filter((b) => b.enabled && (b.role === 'all' || b.role === currentRole))
+    .filter((b) => b.enabled)
     .map((b) => {
       const pct = b.used / b.limit;
       return { ...b, pct, status: pct >= 1 ? 'over' : pct >= b.threshold ? 'near' : 'ok' };
