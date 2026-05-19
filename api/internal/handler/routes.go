@@ -73,10 +73,10 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Patch("/recurring-rules/{ruleId}", patchRecurringRule)
 
 		// Monthly budgets (Milestone 11)
-		r.Get("/budgets", notImplemented)
-		r.Post("/budgets", notImplemented)
-		r.Patch("/budgets/{budgetId}", notImplemented)
-		r.Get("/budgets/usage", notImplemented)
+		r.Get("/budgets", listBudgets)
+		r.Post("/budgets", createBudget)
+		r.Patch("/budgets/{budgetId}", patchBudget)
+		r.Get("/budgets/usage", getBudgetUsage)
 
 		// Scheduled jobs (Milestone 10)
 		r.Post("/jobs/generate-recurring-transactions", generateRecurringTransactions)

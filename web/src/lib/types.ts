@@ -90,6 +90,39 @@ export interface ApiTransaction {
   updatedAt: string;
 }
 
+export type ActorScope = 'actor' | 'household' | 'all';
+
+export interface MonthlyBudget {
+  id: string;
+  householdId: string;
+  month: string; // YYYY-MM
+  actorScope: ActorScope;
+  actorId?: string;
+  categoryId: string;
+  limitAmount: number;
+  currency: Currency;
+  alertThresholdPercent: number;
+  rolloverEnabled: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetUsageItem {
+  budgetId: string;
+  categoryId: string;
+  limitAmount: number;
+  usedAmount: number;
+  remainingAmount: number;
+  usagePercent: number;
+  status: 'ok' | 'warning' | 'over';
+}
+
+export interface BudgetUsageResponse {
+  month: string;
+  items: BudgetUsageItem[];
+}
+
 export interface CreateTransactionRequest {
   transactionType: TransactionType;
   transactionDate: string;
