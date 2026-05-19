@@ -140,6 +140,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
           <input
             type="text"
             inputMode="decimal"
+            autoFocus
             value={amountStr}
             onChange={(e) => {
               const v = e.target.value.replace(/[^\d.]/g, '');

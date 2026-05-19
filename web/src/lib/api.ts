@@ -25,6 +25,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       ...(init?.headers ?? {}),
     },
   });
+  if (res.status === 204) return null as T;
   const body: Envelope<T> = await res.json();
   if (!res.ok || body.error) {
     const msg = body.error?.message ?? `HTTP ${res.status}`;

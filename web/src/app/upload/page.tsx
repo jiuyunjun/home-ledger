@@ -59,7 +59,7 @@ const STATUS_META: Record<QueueStatus, { label: string; color: string; bg: strin
   compressing: { label: '压缩中', color: T.accent,   bg: T.accentSoft   },
   ready:       { label: '已就绪', color: T.success,  bg: T.successSoft  },
   uploading:   { label: '上传中', color: T.accent,   bg: T.accentSoft   },
-  extracting:  { label: 'AI识别', color: T.transfer, bg: T.transferSoft },
+  extracting:  { label: 'AI识别中', color: T.transfer, bg: T.transferSoft },
   done:        { label: '完成',   color: T.success,  bg: T.successSoft  },
   error:       { label: '失败',   color: '#e04040',  bg: '#fde8e8'      },
 };
