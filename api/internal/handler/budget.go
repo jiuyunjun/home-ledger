@@ -179,17 +179,20 @@ func getBudgetUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch all expenses for the month and aggregate by category+actor.
-	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{Month: month, Type: "expense"})
+	// Fetch all transactions for the month and filter expenses in Go to avoid composite index.
+	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{Month: month})
 	if err != nil {
 		writeAppError(w, domain.NewInternalError(err))
 		return
 	}
 
-	// Build per-category spend maps keyed by "categoryId" and "actorId:categoryId".
+	// Build per-category spend maps (expenses only).
 	catTotals := map[string]int64{}      // household-wide, keyed by categoryId
 	actorCatTotals := map[string]int64{} // keyed by "actorId:categoryId"
 	for _, tx := range txs {
+		if tx.TransactionType != domain.TxExpense {
+			continue
+		}
 		catTotals[tx.CategoryID] += tx.Amount
 		actorCatTotals[fmt.Sprintf("%s:%s", tx.ActorID, tx.CategoryID)] += tx.Amount
 	}
