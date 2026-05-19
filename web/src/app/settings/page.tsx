@@ -8,12 +8,12 @@ import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { apiDelete, apiPatch, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import type { AccountType, Actor, Category, PaymentMethod } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // ─── Bottom-sheet primitives ──────────────────────────────────────────────────
 
@@ -374,6 +374,13 @@ export default function SettingsPage() {
   const [editCat, setEditCat] = useState<Category | null>(null);
   const [addCatType, setAddCatType] = useState<'expense' | 'income' | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    apiGet<Record<string, number>>('/api/payment-methods/balances')
+      .then(setPmBalances)
+      .catch(() => {});
+  }, []);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -446,8 +453,14 @@ export default function SettingsPage() {
             data.paymentMethods.map((pm, i) => {
               const color = ACCT_TYPE_COLOR[pm.type];
               const label = ACCT_TYPE_LABEL[pm.type];
-              const account = pm.accountId ? data.account(pm.accountId) : undefined;
               const isCreditCard = pm.type === 'credit_card';
+              const balance = pmBalances[pm.id];
+              const hasBalance = balance !== undefined;
+              // Credit card: balance < 0 means owed (expense > income), show as positive 待还
+              const displayBalance = isCreditCard ? -balance : balance;
+              const balanceColor = isCreditCard
+                ? (balance < 0 ? T.warning : T.success)
+                : (balance >= 0 ? T.ink : T.danger);
               return (
                 <div key={pm.id} onClick={() => setEditPm(pm)}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, cursor: 'pointer', opacity: pm.isActive ? 1 : 0.45 }}>
@@ -455,23 +468,21 @@ export default function SettingsPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, color: T.ink }}>{pm.name}</div>
                     <div style={{ fontSize: 10, color: T.textMute, marginTop: 1 }}>
-                      {!pm.isActive ? '已停用' : account ? account.name : '无余额追踪'}
+                      {!pm.isActive ? '已停用' : '基于交易记录'}
                     </div>
                   </div>
-                  {account && (
+                  {hasBalance ? (
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 10, color: isCreditCard ? T.warning : T.textMute, fontWeight: 500 }}>
                         {isCreditCard ? '待还' : '余额'}
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 600, fontFamily: NUM_FONT, color: isCreditCard ? T.warning : T.ink }}>
-                        {account.currency === 'CNY' ? '¥' : '¥'}{account.currentBalance.toLocaleString()}
-                        {account.currency !== 'JPY' && (
-                          <span style={{ fontSize: 8, marginLeft: 2, color: T.warning }}>{account.currency}</span>
-                        )}
+                      <div style={{ fontSize: 14, fontWeight: 600, fontFamily: NUM_FONT, color: balanceColor }}>
+                        ¥{Math.abs(displayBalance).toLocaleString()}
                       </div>
                     </div>
+                  ) : (
+                    <span style={{ fontSize: 10, color: T.textDim }}>无记录</span>
                   )}
-                  {!account && <span style={{ fontSize: 10, color: T.textDim }}>—</span>}
                   <span style={{ color: T.textDim, fontSize: 12, marginLeft: 2 }}>›</span>
                 </div>
               );

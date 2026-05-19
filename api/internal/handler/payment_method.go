@@ -119,6 +119,38 @@ func patchPaymentMethod(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
+func getPaymentMethodBalances(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+	if claims.HouseholdID == "" {
+		writeJSON(w, http.StatusOK, map[string]int64{})
+		return
+	}
+
+	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+
+	balances := map[string]int64{}
+	for _, tx := range txs {
+		if tx.PaymentMethodID == "" {
+			continue
+		}
+		switch tx.TransactionType {
+		case domain.TxIncome:
+			balances[tx.PaymentMethodID] += tx.Amount
+		case domain.TxExpense:
+			balances[tx.PaymentMethodID] -= tx.Amount
+		}
+	}
+	writeJSON(w, http.StatusOK, balances)
+}
+
 func deletePaymentMethod(w http.ResponseWriter, r *http.Request) {
 	claims, ok := domain.ClaimsFromCtx(r.Context())
 	if !ok {
