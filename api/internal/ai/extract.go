@@ -38,8 +38,10 @@ type ExtractionResult struct {
 
 const systemPrompt = `You are a receipt parser for a private household accounting app used in Japan.
 
-The photo may contain ONE or MULTIPLE physical receipts. Detect each distinct receipt separately.
-Return ONLY this JSON object, no markdown, no explanation:
+First, count the number of physically separate paper receipts in the photo (separate sheets of paper).
+Then extract each one independently.
+
+Return ONLY this JSON object — no markdown, no explanation:
 
 {
   "receipts": [
@@ -47,36 +49,38 @@ Return ONLY this JSON object, no markdown, no explanation:
       "merchantName": <string or "">,
       "transactionDate": "YYYY-MM-DD",
       "currency": "JPY",
-      "totalAmount": <integer>,
+      "totalAmount": <integer, minor units>,
       "paymentHint": "cash|paypay|credit_card|unknown",
       "confidence": <0.0-1.0>,
       "lineItems": [
-        { "name": <string>, "amount": <integer>, "categoryName": <string> }
+        { "name": <string>, "amount": <integer, minor units>, "categoryName": <string> }
       ]
     }
   ]
 }
 
-Rules:
-- receipts: one entry per distinct physical receipt visible in the photo.
-  If there is only one receipt, the array has one element.
-- currency: "JPY" if receipt shows ¥ or 円; "CNY" if 元 or 人民币. Default to "JPY".
-- totalAmount: the final paid total in minor units (JPY = integer yen; CNY = integer fen where ¥1.00 = 100).
-- lineItems: one entry per distinct product or service line on the receipt.
-  If the receipt shows no itemised list, create one item using the total amount.
-- amount per item: integer minor units matching the receipt currency.
-- name: translate the item name to simplified Chinese.
-  Examples: コーヒー → 咖啡, ポケモンカード → 宝可梦卡片, シャンプー → 洗发水,
-            牛乳 → 牛奶, 弁当 → 便当, チキン → 炸鸡, お茶 → 绿茶.
-  If already Chinese or English, keep as-is.
-- categoryName for each item must be exactly one of:
+CRITICAL — receipt splitting:
+- If the photo shows 1 paper receipt → "receipts" has 1 element.
+- If the photo shows 2 paper receipts → "receipts" has 2 elements, one per paper.
+- NEVER mix line items from different physical receipts into the same element.
+  Each element must contain only items from its own paper receipt.
+
+Rules (apply independently to each receipt):
+- currency: "JPY" if ¥ or 円; "CNY" if 元 or 人民币. Default "JPY".
+- totalAmount: final paid total in minor units (JPY = integer yen; CNY = integer fen, ¥1.00 = 100).
+- lineItems: one entry per distinct product/service line printed on that receipt.
+  If no itemised list is visible, create one item using the total amount.
+- amount per item: integer minor units matching the receipt's currency.
+- name: translate to simplified Chinese.
+  コーヒー→咖啡, ポケモンカード→宝可梦卡片, シャンプー→洗发水, 牛乳→牛奶,
+  弁当→便当, チキン→炸鸡, お茶→绿茶. Keep Chinese or English names as-is.
+- categoryName must be exactly one of:
     餐饮, 交通, 购物, 娱乐, 水电网, 医疗, 日用品, 房租, 保险, 其他支出
-  Examples: coffee/food/drink → 餐饮; shampoo/detergent/tissue → 日用品;
-            train/taxi/bus → 交通; clothing/electronics/games → 购物;
-            electricity/gas/water bill → 水电网.
+  coffee/food/drink→餐饮; shampoo/detergent/tissue→日用品; train/taxi/bus→交通;
+  clothing/electronics/games→购物; electricity/gas/water bill→水电网.
 - transactionDate: use the date printed on the receipt. If unclear, use today.
-- paymentHint: infer from logos or text (Suica/PayPay → paypay; VISA/Master → credit_card; 現金 → cash).
-- confidence: 1.0 = all fields clearly visible; 0.5 = partially legible; 0.2 = mostly guessing.`
+- paymentHint: Suica/PayPay→paypay; VISA/Master→credit_card; 現金→cash; else unknown.
+- confidence: 1.0=all fields clearly visible; 0.5=partially legible; 0.2=mostly guessing.`
 
 // ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision and returns
 // all receipts found in the image. userNote is optional guidance.
