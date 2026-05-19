@@ -50,3 +50,21 @@ export function apiPatch<T>(path: string, body: unknown) {
 export function apiDelete(path: string) {
   return apiFetch<null>(path, { method: 'DELETE' });
 }
+
+// Multipart upload — does NOT set Content-Type (browser sets it with boundary).
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const token = await authToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const body: Envelope<T> = await res.json();
+  if (!res.ok || body.error) {
+    const msg = body.error?.message ?? `HTTP ${res.status}`;
+    const err = new Error(msg) as Error & { code?: string };
+    err.code = body.error?.code;
+    throw err;
+  }
+  return body.data as T;
+}

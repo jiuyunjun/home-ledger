@@ -56,16 +56,16 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Patch("/transactions/{transactionId}", patchTransaction)
 		r.Delete("/transactions/{transactionId}", deleteTransaction)
 
-		// Receipt upload + AI extraction (Milestone 7–8)
-		r.Post("/receipts/upload", notImplemented)
-		r.Get("/receipts/{receiptId}", notImplemented)
-		r.Post("/receipts/{receiptId}/extract", notImplemented)
+		// Receipt upload + AI extraction
+		r.Post("/receipts/upload", uploadReceipt)
+		r.Get("/receipts/{receiptId}", getReceipt)
+		r.Post("/receipts/{receiptId}/extract", extractReceipt)
 
-		// Transaction candidates (Milestone 9)
-		r.Get("/transaction-candidates", notImplemented)
-		r.Patch("/transaction-candidates/{candidateId}", notImplemented)
-		r.Post("/transaction-candidates/{candidateId}/confirm", notImplemented)
-		r.Post("/transaction-candidates/{candidateId}/reject", notImplemented)
+		// Transaction candidates (AI review)
+		r.Get("/transaction-candidates", listCandidates)
+		r.Patch("/transaction-candidates/{candidateId}", patchCandidate)
+		r.Post("/transaction-candidates/{candidateId}/confirm", confirmCandidate)
+		r.Post("/transaction-candidates/{candidateId}/reject", rejectCandidate)
 
 		// Recurring rules (Milestone 10)
 		r.Get("/recurring-rules", notImplemented)
