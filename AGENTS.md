@@ -452,3 +452,4 @@ When working on this repository:
 8. Never auto-confirm AI candidates.
 9. If requirements conflict, choose the safer financial behavior and document the assumption.
 10. Do not introduce unnecessary infrastructure or microservices.
+11. Commit after every meaningful change. Do not batch multiple unrelated changes into one commit.
