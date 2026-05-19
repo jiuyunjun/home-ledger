@@ -111,11 +111,11 @@ func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote 
 	}
 
 	payload := map[string]any{
-		"model": "gpt-5",
+		"model": "gpt-5.5",
 		"messages": []map[string]any{
 			{"role": "user", "content": userContent},
 		},
-		"max_tokens":      2048,
+		"max_completion_tokens": 2048,
 		"response_format": map[string]string{"type": "json_object"},
 	}
 
