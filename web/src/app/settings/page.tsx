@@ -1,3 +1,5 @@
+'use client';
+
 import { AppBar } from '@/components/layout/AppBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PhoneScreen } from '@/components/layout/PhoneScreen';
@@ -23,7 +25,7 @@ export default function SettingsPage() {
         <div style={{ fontSize: 12, fontWeight: 500, color: T.textSoft, letterSpacing: 0.3, padding: '0 4px', marginBottom: 8 }}>本浏览器默认角色</div>
         <Card pad={12} style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: T.textMute, marginBottom: 8 }}>新增支出 / 入账时默认填入此角色，可随时修改</div>
-          <RoleSwitcher active="me" />
+          <RoleSwitcher />
         </Card>
 
         {/* Roles */}

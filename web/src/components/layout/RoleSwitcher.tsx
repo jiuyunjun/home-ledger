@@ -1,11 +1,13 @@
+'use client';
+
+import { useApp } from '@/context/AppContext';
 import { ROLES } from '@/lib/data';
 import { T } from '@/lib/tokens';
 
-interface Props {
-  active?: string;
-}
+export function RoleSwitcher() {
+  const { state, dispatch } = useApp();
+  const active = state.currentRole;
 
-export function RoleSwitcher({ active = 'me' }: Props) {
   return (
     <div
       style={{
@@ -22,6 +24,7 @@ export function RoleSwitcher({ active = 'me' }: Props) {
         return (
           <div
             key={r.id}
+            onClick={() => dispatch({ type: 'SET_ROLE', role: r.id as 'me' | 'her' | 'family' })}
             style={{
               flex: 1,
               textAlign: 'center',

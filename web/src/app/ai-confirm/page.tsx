@@ -1,3 +1,5 @@
+'use client';
+
 import { AppBar } from '@/components/layout/AppBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PhoneScreen } from '@/components/layout/PhoneScreen';
@@ -10,8 +12,10 @@ import { ReceiptThumb } from '@/components/ui/ReceiptThumb';
 import { RolePill } from '@/components/ui/RolePill';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { TypeBadge } from '@/components/ui/TypeBadge';
-import { acctById, catById, CURRENCIES, fmtAmount, LineItem, RECEIPT_DRAFTS, roleById } from '@/lib/data';
+import { useApp } from '@/context/AppContext';
+import { acctById, catById, CURRENCIES, fmtAmount, LineItem, roleById, Transaction } from '@/lib/data';
 import { NUM_FONT, T } from '@/lib/tokens';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 function ConfBadge({ v }: { v: number }) {
@@ -67,7 +71,25 @@ function ItemRow({ it, first, currency }: { it: LineItem; first: boolean; curren
 }
 
 export default function AIConfirmPage() {
-  const d = RECEIPT_DRAFTS[0];
+  const { state, dispatch } = useApp();
+  const router = useRouter();
+
+  const d = state.candidates.find((c) => c.status === 'draft');
+
+  if (!d) {
+    return (
+      <PhoneScreen>
+        <AppBar title="确认入账" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: T.textMute }}>
+          <div style={{ fontSize: 40 }}>✓</div>
+          <div style={{ fontSize: 14 }}>没有待确认的小票</div>
+          <Link href="/upload" style={{ fontSize: 13, color: T.accent }}>返回上传</Link>
+        </div>
+        <BottomNav />
+      </PhoneScreen>
+    );
+  }
+
   const r = roleById(d.fields.role.value);
   const a = acctById(d.fields.acct.value);
   const txType = d.fields.type.value;
@@ -82,6 +104,28 @@ export default function AIConfirmPage() {
   const catDist = Object.entries(byCat)
     .map(([cid, amt]) => ({ cat: catById(cid), amount: amt }))
     .sort((a, b) => b.amount - a.amount);
+
+  function handleConfirm() {
+    const tx: Transaction = {
+      id: `tx_${Date.now()}`,
+      date: d!.fields.date.value,
+      type: (d!.fields.type.value as 'expense' | 'income'),
+      role: d!.fields.role.value,
+      amount: total,
+      currency: cc,
+      cat: d!.fields.cat.value,
+      acct: d!.fields.acct.value,
+      title: d!.fields.title.value,
+      note: d!.fields.note.value,
+    };
+    dispatch({ type: 'CONFIRM_CANDIDATE', candidateId: d!.id, tx });
+    router.push('/transactions');
+  }
+
+  function handleReject() {
+    dispatch({ type: 'REJECT_CANDIDATE', candidateId: d!.id });
+    router.push('/upload');
+  }
 
   return (
     <PhoneScreen>
@@ -186,8 +230,8 @@ export default function AIConfirmPage() {
       </div>
 
       <div style={{ padding: '10px 16px 18px', borderTop: `1px solid ${T.borderSoft}`, background: 'rgba(251,248,242,0.96)', display: 'flex', gap: 8, alignItems: 'stretch' }}>
-        <Button variant="danger" size="lg" style={{ flex: 1 }}>拒绝</Button>
-        <Button variant="success" size="lg" style={{ flex: 2, flexDirection: 'column', gap: 0, padding: '6px 10px', height: 48 }}>
+        <Button variant="danger" size="lg" style={{ flex: 1 }} onClick={handleReject}>拒绝</Button>
+        <Button variant="success" size="lg" style={{ flex: 2, flexDirection: 'column', gap: 0, padding: '6px 10px', height: 48 }} onClick={handleConfirm}>
           <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.1 }}>确认入账</span>
           <span style={{ fontSize: 10, opacity: 0.85, lineHeight: 1.1, marginTop: 2 }}>{includedItems.length} 笔 · {fmtAmount(total, cc)}</span>
         </Button>

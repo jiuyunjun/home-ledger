@@ -1,3 +1,5 @@
+'use client';
+
 import { AppBar } from '@/components/layout/AppBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PhoneScreen } from '@/components/layout/PhoneScreen';
@@ -7,9 +9,8 @@ import { Card } from '@/components/ui/Card';
 import { CatMark } from '@/components/ui/CatMark';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { TxRow } from '@/components/ui/TxRow';
-import {
-  ACCOUNTS, ACCT_KIND, BUDGETS, catById, catSummary, monthTotals, roleById, TX,
-} from '@/lib/data';
+import { useApp } from '@/context/AppContext';
+import { ACCT_KIND, catById, roleById, Transaction } from '@/lib/data';
 import { T } from '@/lib/tokens';
 import Link from 'next/link';
 
@@ -20,17 +21,62 @@ const ACTION_BTNS = [
   { label: '小票', glyph: '↑', color: T.accent,   filled: false, href: '/upload'               },
 ];
 
-export default function DashboardPage() {
-  const m = monthTotals;
-  const recent = TX.slice(0, 6);
-  const topCats = catSummary.slice(0, 4);
-  const catTotal = catSummary.reduce((a, b) => a + b.amount, 0);
+const THIS_MONTH = '2026-05';
+const BUDGET_TOTAL = 220000;
 
-  const budgetAlerts = BUDGETS.filter((b) => b.enabled).map((b) => {
-    const pct = b.used / b.limit;
-    return { ...b, pct, status: pct >= 1 ? 'over' : pct >= b.threshold ? 'near' : 'ok' };
+function sumExpense(txs: Transaction[]) {
+  return txs
+    .filter((t) => t.type === 'expense' && t.currency === 'JPY')
+    .reduce((s, t) => s + (t.amount ?? 0), 0);
+}
+
+function sumIncome(txs: Transaction[]) {
+  return txs
+    .filter((t) => t.type === 'income' && t.currency === 'JPY')
+    .reduce((s, t) => s + (t.amount ?? 0), 0);
+}
+
+function catSummaryFromTxs(txs: Transaction[]) {
+  const map = new Map<string, number>();
+  txs.filter((t) => t.type === 'expense' && t.currency === 'JPY').forEach((t) => {
+    const key = t.cat ?? 'other';
+    map.set(key, (map.get(key) ?? 0) + (t.amount ?? 0));
   });
+  return [...map.entries()]
+    .map(([cat, amount]) => ({ cat, amount }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+export default function DashboardPage() {
+  const { state } = useApp();
+  const { transactions, accounts, budgets, currentRole } = state;
+
+  const monthTxs = transactions.filter((t) => t.date.startsWith(THIS_MONTH));
+  const roleTxs = currentRole === 'family'
+    ? monthTxs.filter((t) => t.role === 'family')
+    : monthTxs.filter((t) => t.role === currentRole);
+
+  const expense = sumExpense(roleTxs);
+  const income = sumIncome(roleTxs);
+
+  const exMe     = sumExpense(monthTxs.filter((t) => t.role === 'me'));
+  const exHer    = sumExpense(monthTxs.filter((t) => t.role === 'her'));
+  const exFamily = sumExpense(monthTxs.filter((t) => t.role === 'family'));
+
+  const topCats = catSummaryFromTxs(roleTxs).slice(0, 4);
+  const catTotal = topCats.reduce((a, b) => a + b.amount, 0);
+
+  const budgetAlerts = budgets
+    .filter((b) => b.enabled && (b.role === 'all' || b.role === currentRole))
+    .map((b) => {
+      const pct = b.used / b.limit;
+      return { ...b, pct, status: pct >= 1 ? 'over' : pct >= b.threshold ? 'near' : 'ok' };
+    });
   const overOrNear = budgetAlerts.filter((b) => b.status !== 'ok');
+
+  const recent = roleTxs.slice(0, 6);
+
+  const bankAccounts = accounts.filter((a) => a.kind !== 'card').slice(0, 5);
 
   return (
     <PhoneScreen>
@@ -46,7 +92,7 @@ export default function DashboardPage() {
       />
 
       <div style={{ padding: '0 14px 6px' }}>
-        <RoleSwitcher active="me" />
+        <RoleSwitcher />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px 80px' }}>
@@ -55,37 +101,38 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 10, color: T.textMute, letterSpacing: 0.4, marginBottom: 3 }}>本月总支出</div>
-              <Amount value={m.expense} size={26} weight={600} color={T.ink} />
+              <Amount value={expense} size={26} weight={600} color={T.ink} />
             </div>
             <div style={{ flex: 1, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, paddingLeft: 12 }}>
               <div style={{ fontSize: 10, color: T.textMute, letterSpacing: 0.4, marginBottom: 3 }}>本月入账</div>
-              <Amount value={m.income} size={18} weight={600} color={T.income} sign="+" />
+              <Amount value={income} size={18} weight={600} color={T.income} sign="+" />
               <div style={{ fontSize: 10, color: T.textMute, marginTop: 4 }}>
-                结余 <Amount value={m.income - m.expense} size={10} weight={600} color={T.income} sign="+" />
+                结余 <Amount value={income - expense} size={10} weight={600} color={T.income} sign="+" />
               </div>
             </div>
           </div>
           <div style={{ marginTop: 12, height: 5, background: T.bgSubtle, borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ width: `${((m.expense / m.budget) * 100).toFixed(0)}%`, height: '100%', background: T.accent }} />
+            <div style={{ width: `${Math.min(100, ((expense / BUDGET_TOTAL) * 100))}%`, height: '100%', background: T.accent }} />
           </div>
           <div style={{ marginTop: 6, fontSize: 10, color: T.textMute, display: 'flex', justifyContent: 'space-between' }}>
-            <span>本月预算 {((m.expense / m.budget) * 100).toFixed(0)}%</span>
-            <span>剩余 <Amount value={m.budget - m.expense} size={10} color={T.textSoft} /></span>
+            <span>本月预算 {((expense / BUDGET_TOTAL) * 100).toFixed(0)}%</span>
+            <span>剩余 <Amount value={BUDGET_TOTAL - expense} size={10} color={T.textSoft} /></span>
           </div>
         </Card>
 
         {/* Per-role mini cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
-          {([['me', m.exMe], ['her', m.exHer], ['family', m.exFamily]] as const).map(([rid, v]) => {
+          {([['me', exMe], ['her', exHer], ['family', exFamily]] as const).map(([rid, v]) => {
             const r = roleById(rid);
+            const totalAll = exMe + exHer + exFamily;
             return (
-              <div key={rid} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: '10px 10px 12px' }}>
+              <div key={rid} style={{ background: T.surface, border: `1px solid ${rid === currentRole ? r.color + '60' : T.border}`, borderRadius: 12, padding: '10px 10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
                   <span style={{ width: 6, height: 6, borderRadius: 3, background: r.color }} />
                   <span style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>{r.name}</span>
                 </div>
                 <Amount value={v} size={15} weight={600} color={T.ink} />
-                <div style={{ fontSize: 9, color: T.textMute, marginTop: 2 }}>{((v / m.expense) * 100).toFixed(0)}% 占比</div>
+                <div style={{ fontSize: 9, color: T.textMute, marginTop: 2 }}>{totalAll > 0 ? ((v / totalAll) * 100).toFixed(0) : '0'}% 占比</div>
               </div>
             );
           })}
@@ -108,7 +155,7 @@ export default function DashboardPage() {
         {/* Account balances */}
         <SectionLabel right={<Link href="/settings" style={{ color: T.textMute, textDecoration: 'none' }}>管理 →</Link>}>账户余额</SectionLabel>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 0 10px', marginBottom: 4 }}>
-          {ACCOUNTS.filter((a) => a.kind !== 'card').slice(0, 5).map((a) => (
+          {bankAccounts.map((a) => (
             <div key={a.id} style={{ flex: '0 0 auto', minWidth: 124, background: a.currency === 'CNY' ? '#FAF4EE' : T.surface, border: `1px solid ${a.currency === 'CNY' ? '#E8D9C5' : T.border}`, borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
                 <span style={{ width: 5, height: 5, borderRadius: 1, background: ACCT_KIND[a.kind].color }} />
@@ -159,37 +206,45 @@ export default function DashboardPage() {
         )}
 
         {/* Category breakdown */}
-        <SectionLabel right="本月">分类支出</SectionLabel>
-        <Card pad={12} style={{ marginBottom: 14 }}>
-          {topCats.map((row, i) => {
-            const c = catById(row.cat);
-            const pct = (row.amount / catTotal) * 100;
-            return (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
-                <CatMark cat={c} size={26} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontSize: 13, color: T.ink }}>{c.name}</span>
-                    <Amount value={row.amount} size={13} weight={500} />
+        {topCats.length > 0 && (
+          <>
+            <SectionLabel right="本月">分类支出</SectionLabel>
+            <Card pad={12} style={{ marginBottom: 14 }}>
+              {topCats.map((row, i) => {
+                const c = catById(row.cat);
+                const pct = catTotal > 0 ? (row.amount / catTotal) * 100 : 0;
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
+                    <CatMark cat={c} size={26} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: 13, color: T.ink }}>{c.name}</span>
+                        <Amount value={row.amount} size={13} weight={500} />
+                      </div>
+                      <div style={{ marginTop: 4, height: 3, background: T.bgSubtle, borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: c.tint, borderRadius: 2 }} />
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ marginTop: 4, height: 3, background: T.bgSubtle, borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: c.tint, borderRadius: 2 }} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </Card>
+                );
+              })}
+            </Card>
+          </>
+        )}
 
         {/* Recent transactions */}
         <SectionLabel right={<Link href="/transactions" style={{ color: T.textMute, textDecoration: 'none' }}>查看全部 →</Link>}>最近</SectionLabel>
-        <Card pad={4}>
-          {recent.map((tx, i) => (
-            <div key={tx.id} style={{ borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, padding: '0 8px' }}>
-              <TxRow tx={tx} showDate />
-            </div>
-          ))}
-        </Card>
+        {recent.length > 0 ? (
+          <Card pad={4}>
+            {recent.map((tx, i) => (
+              <div key={tx.id} style={{ borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, padding: '0 8px' }}>
+                <TxRow tx={tx} showDate />
+              </div>
+            ))}
+          </Card>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: T.textMute, fontSize: 13 }}>暂无记录</div>
+        )}
       </div>
 
       <BottomNav active="home" />
