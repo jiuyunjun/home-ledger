@@ -113,7 +113,8 @@ Cloud Run     还未部署（M13）
 - **金额存整数 minor units**：JPY = 日元整数，CNY = 分（×100）
 - **月份过滤客户端做**：Firestore 不支持字符串前缀，Go 拿全量后按 `transactionDate[:7]` 过滤
 - **图片压缩客户端做**：Canvas API，长边 ≤ 1600px，JPEG 85%（ADR-010）
-- **AI 不自动入账**：gpt-4o 生成 TransactionCandidate（status=draft），用户必须手动 confirm
+- **AI 按商品分类**：gpt-4o 提取每个商品并分配 categoryName（咖啡→餐饮，洗发露→日用品）；
+  handler 按 category 归组，每组创建一个 TransactionCandidate。用户必须手动 confirm，AI 不自动入账。
 - **Bootstrap 幂等**：第一次登录调 `POST /api/households/bootstrap`，自动创 Household + 默认数据
 - **API envelope**：所有响应 `{ data, error }`，前端用 `apiFetch<T>` 统一解包
 - **中间件不导入 handler 包**：避免循环依赖，middleware/auth.go 直接 inline 写 401
