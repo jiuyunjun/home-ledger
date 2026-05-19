@@ -54,12 +54,17 @@ Rules:
 - lineItems: one entry per distinct product or service line on the receipt.
   If the receipt shows no itemised list, create one item using the total amount.
 - amount per item: integer minor units matching the receipt currency.
+- name: translate the item name to simplified Chinese.
+  Examples: コーヒー → 咖啡, ポケモンカード → 宝可梦卡片, シャンプー → 洗发水,
+            牛乳 → 牛奶, 弁当 → 便当, チキン → 炸鸡, お茶 → 绿茶.
+  If already Chinese or English, keep as-is.
 - categoryName for each item must be exactly one of:
     餐饮, 交通, 购物, 娱乐, 水电网, 医疗, 日用品, 房租, 保险, 其他支出
-  Examples: coffee / food → 餐饮; shampoo / detergent → 日用品; train / taxi → 交通;
-            clothing / electronics → 购物; electricity / gas bill → 水电网.
+  Examples: coffee/food/drink → 餐饮; shampoo/detergent/tissue → 日用品;
+            train/taxi/bus → 交通; clothing/electronics/games → 购物;
+            electricity/gas/water bill → 水电网.
 - transactionDate: use the date printed on the receipt. If unclear, use today.
-- paymentHint: infer from logos or text (Suica / PayPay → paypay; VISA/Master → credit_card; 現金 → cash).
+- paymentHint: infer from logos or text (Suica/PayPay → paypay; VISA/Master → credit_card; 現金 → cash).
 - confidence: 1.0 = all fields clearly visible; 0.5 = partially legible; 0.2 = mostly guessing.`
 
 // ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision

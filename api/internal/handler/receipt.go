@@ -160,39 +160,35 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		currency = domain.CurrencyJPY
 	}
 
-	// Group line items by category, sum amounts per group.
-	// If no line items, fall back to one candidate with the total amount.
-	type group struct {
-		categoryName string
-		amount       int64
+	// Create one candidate per line item.
+	// MerchantName holds the Chinese item name; the store name is on the Receipt.
+	// Fall back to one candidate for the total if no usable line items.
+	type item struct {
+		name     string
+		amount   int64
+		catName  string
 	}
-	groupOrder := []string{}
-	groupMap := map[string]*group{}
-
-	for _, item := range extracted.LineItems {
-		if item.Amount <= 0 {
+	var items []item
+	for _, li := range extracted.LineItems {
+		if li.Amount <= 0 {
 			continue
 		}
-		cat := item.CategoryName
-		if cat == "" {
-			cat = "其他支出"
+		catName := li.CategoryName
+		if catName == "" {
+			catName = "其他支出"
 		}
-		if _, ok := groupMap[cat]; !ok {
-			groupOrder = append(groupOrder, cat)
-			groupMap[cat] = &group{categoryName: cat}
+		name := li.Name
+		if name == "" {
+			name = extracted.MerchantName
 		}
-		groupMap[cat].amount += item.Amount
+		items = append(items, item{name: name, amount: li.Amount, catName: catName})
+	}
+	if len(items) == 0 {
+		items = []item{{name: extracted.MerchantName, amount: extracted.TotalAmount, catName: "其他支出"}}
 	}
 
-	// Fall back: one candidate for the total if no usable line items.
-	if len(groupOrder) == 0 {
-		groupOrder = []string{"其他支出"}
-		groupMap["其他支出"] = &group{categoryName: "其他支出", amount: extracted.TotalAmount}
-	}
-
-	candidates := make([]*domain.TransactionCandidate, 0, len(groupOrder))
-	for _, catName := range groupOrder {
-		g := groupMap[catName]
+	candidates := make([]*domain.TransactionCandidate, 0, len(items))
+	for _, it := range items {
 		c := &domain.TransactionCandidate{
 			ID:                  uuid.NewString(),
 			ReceiptID:           receiptID,
@@ -200,10 +196,10 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 			SuggestedActorID:    claims.ActorID,
 			SuggestedType:       domain.TxExpense,
 			SuggestedDate:       txDate,
-			SuggestedAmount:     g.amount,
+			SuggestedAmount:     it.amount,
 			SuggestedCurrency:   currency,
-			SuggestedCategoryID: catByName[g.categoryName],
-			MerchantName:        extracted.MerchantName,
+			SuggestedCategoryID: catByName[it.catName],
+			MerchantName:        it.name,
 			AIUserNote:          receipt.AIUserNote,
 			Confidence:          extracted.Confidence,
 			Warnings:            []domain.CandidateWarning{},
