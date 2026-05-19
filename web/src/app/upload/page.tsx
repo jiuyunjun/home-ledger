@@ -157,7 +157,7 @@ export default function UploadPage() {
 
         const receipt = await apiUpload<{ id: string }>('/api/receipts/upload', form);
 
-        // Extract with AI
+        // Extract with AI (returns array of candidates, one per category)
         setItemStatus(item.id, 'extracting');
         await apiPost(`/api/receipts/${receipt.id}/extract`, {});
 

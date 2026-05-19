@@ -144,46 +144,78 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find the matching category ID by name.
+	// Build category name → ID map.
 	cats, _ := repo.ListCategories(r.Context(), claims.HouseholdID)
-	catID := ""
+	catByName := make(map[string]string, len(cats))
 	for _, c := range cats {
-		if c.Name == extracted.CategoryName {
-			catID = c.ID
-			break
-		}
+		catByName[c.Name] = c.ID
 	}
 
 	txDate := extracted.TransactionDate
 	if txDate == "" {
 		txDate = now.Format("2006-01-02")
 	}
-
-	candidate := &domain.TransactionCandidate{
-		ID:                   uuid.NewString(),
-		ReceiptID:            receiptID,
-		HouseholdID:          claims.HouseholdID,
-		SuggestedActorID:     claims.ActorID,
-		SuggestedType:        domain.TransactionType(extracted.TransactionType),
-		SuggestedDate:        txDate,
-		SuggestedAmount:      extracted.Amount,
-		SuggestedCurrency:    domain.Currency(extracted.Currency),
-		SuggestedCategoryID:  catID,
-		MerchantName:         extracted.MerchantName,
-		AIUserNote:           receipt.AIUserNote,
-		Confidence:           extracted.Confidence,
-		Warnings:             []domain.CandidateWarning{},
-		Status:               domain.CandidateDraft,
-		CreatedAt:            now,
-		UpdatedAt:            now,
-	}
-	if extracted.Title != "" {
-		candidate.MerchantName = extracted.MerchantName
+	currency := domain.Currency(extracted.Currency)
+	if currency == "" {
+		currency = domain.CurrencyJPY
 	}
 
-	if err := repo.CreateCandidate(r.Context(), candidate); err != nil {
-		writeAppError(w, domain.NewInternalError(err))
-		return
+	// Group line items by category, sum amounts per group.
+	// If no line items, fall back to one candidate with the total amount.
+	type group struct {
+		categoryName string
+		amount       int64
+	}
+	groupOrder := []string{}
+	groupMap := map[string]*group{}
+
+	for _, item := range extracted.LineItems {
+		if item.Amount <= 0 {
+			continue
+		}
+		cat := item.CategoryName
+		if cat == "" {
+			cat = "其他支出"
+		}
+		if _, ok := groupMap[cat]; !ok {
+			groupOrder = append(groupOrder, cat)
+			groupMap[cat] = &group{categoryName: cat}
+		}
+		groupMap[cat].amount += item.Amount
+	}
+
+	// Fall back: one candidate for the total if no usable line items.
+	if len(groupOrder) == 0 {
+		groupOrder = []string{"其他支出"}
+		groupMap["其他支出"] = &group{categoryName: "其他支出", amount: extracted.TotalAmount}
+	}
+
+	candidates := make([]*domain.TransactionCandidate, 0, len(groupOrder))
+	for _, catName := range groupOrder {
+		g := groupMap[catName]
+		c := &domain.TransactionCandidate{
+			ID:                  uuid.NewString(),
+			ReceiptID:           receiptID,
+			HouseholdID:         claims.HouseholdID,
+			SuggestedActorID:    claims.ActorID,
+			SuggestedType:       domain.TxExpense,
+			SuggestedDate:       txDate,
+			SuggestedAmount:     g.amount,
+			SuggestedCurrency:   currency,
+			SuggestedCategoryID: catByName[g.categoryName],
+			MerchantName:        extracted.MerchantName,
+			AIUserNote:          receipt.AIUserNote,
+			Confidence:          extracted.Confidence,
+			Warnings:            []domain.CandidateWarning{},
+			Status:              domain.CandidateDraft,
+			CreatedAt:           now,
+			UpdatedAt:           now,
+		}
+		if err := repo.CreateCandidate(r.Context(), c); err != nil {
+			writeAppError(w, domain.NewInternalError(err))
+			return
+		}
+		candidates = append(candidates, c)
 	}
 
 	_ = repo.UpdateReceipt(r.Context(), receiptID, map[string]any{
@@ -192,5 +224,5 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		"updatedAt": now,
 	})
 
-	writeJSON(w, http.StatusCreated, candidate)
+	writeJSON(w, http.StatusCreated, candidates)
 }

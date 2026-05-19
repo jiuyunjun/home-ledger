@@ -13,40 +13,54 @@ import (
 	"strings"
 )
 
-// ExtractedReceipt holds the fields parsed from a receipt image.
-type ExtractedReceipt struct {
-	TransactionType string  `json:"transactionType"` // expense | income
-	TransactionDate string  `json:"transactionDate"` // YYYY-MM-DD
-	Amount          int64   `json:"amount"`          // minor units (JPY=yen, CNY=fen)
-	Currency        string  `json:"currency"`        // JPY | CNY
-	CategoryName    string  `json:"categoryName"`
-	MerchantName    string  `json:"merchantName"`
-	Title           string  `json:"title"`
-	Confidence      float64 `json:"confidence"` // 0–1
+// LineItem is one product or service from a receipt.
+type LineItem struct {
+	Name         string `json:"name"`
+	Amount       int64  `json:"amount"`       // minor units, same currency as receipt
+	CategoryName string `json:"categoryName"` // must match allowed category list
 }
 
-const systemPrompt = `You are a financial receipt parser for a household accounting app used in Japan.
-Analyze the receipt image and return ONLY a JSON object with these fields:
+// ExtractedReceipt holds the fields parsed from a receipt image.
+type ExtractedReceipt struct {
+	MerchantName    string     `json:"merchantName"`
+	TransactionDate string     `json:"transactionDate"` // YYYY-MM-DD
+	Currency        string     `json:"currency"`        // JPY | CNY
+	TotalAmount     int64      `json:"totalAmount"`     // minor units
+	PaymentHint     string     `json:"paymentHint"`     // cash|paypay|credit_card|unknown
+	Confidence      float64    `json:"confidence"`      // 0–1
+	LineItems       []LineItem `json:"lineItems"`
+}
+
+const systemPrompt = `You are a receipt parser for a private household accounting app used in Japan.
+
+Extract every line item from the receipt and assign each item a category from the allowed list.
+Return ONLY this JSON object, no markdown, no explanation:
+
 {
-  "transactionType": "expense",
+  "merchantName": <string or "">,
   "transactionDate": "YYYY-MM-DD",
-  "amount": <integer minor units>,
   "currency": "JPY",
-  "categoryName": <string>,
-  "merchantName": <string>,
-  "title": <short description>,
-  "confidence": <0.0-1.0>
+  "totalAmount": <integer>,
+  "paymentHint": "cash|paypay|credit_card|unknown",
+  "confidence": <0.0-1.0>,
+  "lineItems": [
+    { "name": <string>, "amount": <integer>, "categoryName": <string> }
+  ]
 }
 
 Rules:
-- transactionType is almost always "expense" for receipts.
-- amount: JPY is integer yen (no decimals). CNY is integer fen (¥1.00 = 100 fen).
-- currency: "JPY" if amounts show ¥ or 円, "CNY" if 元/人民币.
-- transactionDate: use the date shown on the receipt. If unclear, use today's date.
-- categoryName must be exactly one of: 餐饮, 交通, 购物, 娱乐, 水电网, 医疗, 日用品, 房租, 保险, 其他支出
-- merchantName: the store/restaurant name as shown.
-- title: a short human-readable description (e.g. "セブン-イレブン コーヒー").
-- confidence: 1.0 = perfectly clear receipt, 0.5 = partially legible, 0.2 = guessing.`
+- currency: "JPY" if receipt shows ¥ or 円; "CNY" if 元 or 人民币. Default to "JPY".
+- totalAmount: the final paid total in minor units (JPY = integer yen; CNY = integer fen where ¥1.00 = 100).
+- lineItems: one entry per distinct product or service line on the receipt.
+  If the receipt shows no itemised list, create one item using the total amount.
+- amount per item: integer minor units matching the receipt currency.
+- categoryName for each item must be exactly one of:
+    餐饮, 交通, 购物, 娱乐, 水电网, 医疗, 日用品, 房租, 保险, 其他支出
+  Examples: coffee / food → 餐饮; shampoo / detergent → 日用品; train / taxi → 交通;
+            clothing / electronics → 购物; electricity / gas bill → 水电网.
+- transactionDate: use the date printed on the receipt. If unclear, use today.
+- paymentHint: infer from logos or text (Suica / PayPay → paypay; VISA/Master → credit_card; 現金 → cash).
+- confidence: 1.0 = all fields clearly visible; 0.5 = partially legible; 0.2 = mostly guessing.`
 
 // ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision
 // and returns parsed receipt fields. userNote is optional guidance.
@@ -81,7 +95,7 @@ func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote 
 		"messages": []map[string]any{
 			{"role": "user", "content": userContent},
 		},
-		"max_tokens":      512,
+		"max_tokens":      1024,
 		"response_format": map[string]string{"type": "json_object"},
 	}
 
