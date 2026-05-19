@@ -11,6 +11,7 @@ type Claims struct {
 	UID         string
 	Email       string
 	HouseholdID string // populated after Firestore user-doc lookup
+	ActorID     string // the actor this user maps to in the household
 }
 
 func WithClaims(ctx context.Context, c *Claims) context.Context {

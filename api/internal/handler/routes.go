@@ -10,77 +10,75 @@ import (
 )
 
 // NewRouter builds and returns the application router with all routes registered.
-// Handlers that are not yet implemented return 501 Not Implemented.
 func NewRouter(allowedOrigins []string) http.Handler {
 	r := chi.NewRouter()
 
-	// Global middleware stack
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.CORS(allowedOrigins))
 	r.Use(chimw.Recoverer)
 
-	// Health check — no auth required
 	r.Get("/healthz", healthz)
 
-	// Authenticated API routes
 	r.Route("/api", func(r chi.Router) {
 		r.Use(middleware.RequireAuth)
 
 		// Identity & household
 		r.Get("/me", getMe)
 		r.Get("/households/current", getCurrentHousehold)
+		r.Post("/households/bootstrap", postBootstrap)
+		r.Post("/households/join", postJoinHousehold)
 
 		// Actors
-		r.Get("/actors", notImplemented)
-		r.Post("/actors", notImplemented)
-		r.Patch("/actors/{actorId}", notImplemented)
+		r.Get("/actors", listActors)
+		r.Post("/actors", createActor)
+		r.Patch("/actors/{actorId}", patchActor)
 
 		// Accounts
-		r.Get("/accounts", notImplemented)
-		r.Post("/accounts", notImplemented)
-		r.Patch("/accounts/{accountId}", notImplemented)
+		r.Get("/accounts", listAccounts)
+		r.Post("/accounts", createAccount)
+		r.Patch("/accounts/{accountId}", patchAccount)
 
 		// Payment methods
-		r.Get("/payment-methods", notImplemented)
-		r.Post("/payment-methods", notImplemented)
-		r.Patch("/payment-methods/{paymentMethodId}", notImplemented)
+		r.Get("/payment-methods", listPaymentMethods)
+		r.Post("/payment-methods", createPaymentMethod)
+		r.Patch("/payment-methods/{paymentMethodId}", patchPaymentMethod)
 
 		// Categories
-		r.Get("/categories", notImplemented)
-		r.Post("/categories", notImplemented)
-		r.Patch("/categories/{categoryId}", notImplemented)
+		r.Get("/categories", listCategories)
+		r.Post("/categories", createCategory)
+		r.Patch("/categories/{categoryId}", patchCategory)
 
-		// Transactions
+		// Transactions (Milestone 6)
 		r.Get("/transactions", notImplemented)
 		r.Post("/transactions", notImplemented)
 		r.Get("/transactions/{transactionId}", notImplemented)
 		r.Patch("/transactions/{transactionId}", notImplemented)
 		r.Delete("/transactions/{transactionId}", notImplemented)
 
-		// Receipt upload + AI extraction
+		// Receipt upload + AI extraction (Milestone 7–8)
 		r.Post("/receipts/upload", notImplemented)
 		r.Get("/receipts/{receiptId}", notImplemented)
 		r.Post("/receipts/{receiptId}/extract", notImplemented)
 
-		// Transaction candidates (AI review)
+		// Transaction candidates (Milestone 9)
 		r.Get("/transaction-candidates", notImplemented)
 		r.Patch("/transaction-candidates/{candidateId}", notImplemented)
 		r.Post("/transaction-candidates/{candidateId}/confirm", notImplemented)
 		r.Post("/transaction-candidates/{candidateId}/reject", notImplemented)
 
-		// Recurring rules
+		// Recurring rules (Milestone 10)
 		r.Get("/recurring-rules", notImplemented)
 		r.Post("/recurring-rules", notImplemented)
 		r.Patch("/recurring-rules/{ruleId}", notImplemented)
 
-		// Monthly budgets
+		// Monthly budgets (Milestone 11)
 		r.Get("/budgets", notImplemented)
 		r.Post("/budgets", notImplemented)
 		r.Patch("/budgets/{budgetId}", notImplemented)
 		r.Get("/budgets/usage", notImplemented)
 
-		// Scheduled jobs (called by Cloud Scheduler)
+		// Scheduled jobs (Milestone 10)
 		r.Post("/jobs/generate-recurring-transactions", notImplemented)
 	})
 

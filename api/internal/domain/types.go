@@ -90,6 +90,15 @@ const (
 
 // ── Core entities ─────────────────────────────────────────────────────────────
 
+// UserRecord links a Firebase UID to a household and actor.
+type UserRecord struct {
+	UID         string    `json:"uid" firestore:"uid"`
+	HouseholdID string    `json:"householdId" firestore:"householdId"`
+	ActorID     string    `json:"actorId" firestore:"actorId"`
+	Email       string    `json:"email" firestore:"email"`
+	CreatedAt   time.Time `json:"createdAt" firestore:"createdAt"`
+}
+
 type Household struct {
 	ID        string    `json:"id" firestore:"id"`
 	Name      string    `json:"name" firestore:"name"`

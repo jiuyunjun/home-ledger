@@ -6,13 +6,15 @@ import (
 
 	"github.com/home-ledger/api/internal/domain"
 	fbapp "github.com/home-ledger/api/internal/firebase"
+	"github.com/home-ledger/api/internal/repo"
 )
 
-// RequireAuth verifies the Firebase ID token in the Authorization header,
-// looks up the user's householdId from Firestore, and injects Claims into ctx.
+// RequireAuth verifies the Firebase ID token, looks up householdId from
+// Firestore users/{uid}, and injects Claims into the request context.
 //
 // Returns 401 if the token is missing or invalid.
-// Returns 403 if the user has no associated household.
+// A missing household is allowed — householdId will be empty, letting the
+// /api/households/bootstrap endpoint work for first-time users.
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := bearerToken(r)
@@ -28,14 +30,18 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// TODO Milestone 5: look up householdId from Firestore users/{uid}
-		// For now, accept any authenticated user with householdId from custom claims.
-		householdID, _ := verified.Claims["householdId"].(string)
+		householdID := ""
+		actorID := ""
+		if u, err := repo.GetUser(r.Context(), verified.UID); err == nil && u != nil {
+			householdID = u.HouseholdID
+			actorID = u.ActorID
+		}
 
 		claims := &domain.Claims{
 			UID:         verified.UID,
 			Email:       emailFromClaims(verified.Claims),
 			HouseholdID: householdID,
+			ActorID:     actorID,
 		}
 
 		next.ServeHTTP(w, r.WithContext(domain.WithClaims(r.Context(), claims)))
@@ -61,8 +67,6 @@ func emailFromClaims(c map[string]any) string {
 	return ""
 }
 
-// writeUnauthorized sends a minimal 401 without importing handler package
-// (to avoid a circular dependency).
 func writeUnauthorized(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusUnauthorized)
