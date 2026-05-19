@@ -2,6 +2,13 @@
 .env
 .env.local
 
+# Firebase deploy cache
+.firebase/
+
+# Service account keys — never commit
+*.json.key
+firebase-deploy-key.json
+
 # Claude Code local settings
 .claude/settings.local.json
 
