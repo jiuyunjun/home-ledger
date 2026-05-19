@@ -50,6 +50,15 @@
       ]
     },
     {
+      "collectionGroup": "transactionCandidates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "householdId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "recurringRules",
       "queryScope": "COLLECTION",
       "fields": [
