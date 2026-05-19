@@ -230,7 +230,8 @@ payment_methods/{id}           PaymentMethod（householdId, linkedAccountId）
 categories/{categoryId}        Category（householdId, type: expense|income, sortOrder）
 transactions/{id}              Transaction（householdId, transactionType, amount 整数）
 receipts/{receiptId}           Receipt（householdId, gcsPath, aiStatus）
-transaction_candidates/{id}    TransactionCandidate（householdId, status: draft|confirmed|rejected|edited）
+transactionCandidates/{id}     TransactionCandidate（householdId, status: draft|confirmed|rejected|edited）
+                               索引：householdId ASC + status ASC + createdAt DESC
 ```
 
 ---
