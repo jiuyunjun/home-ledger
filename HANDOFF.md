@@ -1,6 +1,6 @@
 # HANDOFF.md — Home Ledger 项目交接文档
 
-> 写给下一个接手的 AI agent。最后更新 2026-05-19（M8 强化：按商品分项 + 中文名 + 可编辑审核）。
+> 写给下一个接手的 AI agent。最后更新 2026-05-19（M8 强化：按商品分项 + 中文名 + 可编辑审核 + 设计稿对齐）。
 
 ---
 
@@ -21,7 +21,7 @@
 | 5 | Actors / Accounts / PaymentMethods / Categories | ✅ Done | `0581622` |
 | 6 | 手动记账 CRUD（expense / income / transfer） | ✅ Done | `520da33` |
 | 7 | 小票上传（GCS 存储） | ✅ Done | `2ab7947` |
-| 8 | OpenAI 识别 + AI 审核确认流 | ✅ Done | `9b03258` |
+| 8 | OpenAI 识别 + AI 审核确认流 | ✅ Done | `4ef5419` |
 | 9 | （并入 M8，已完成） | ✅ Done | — |
 | 10 | 固定规则/循环支出 | ✅ Done | `787889f` |
 | 11 | 月度分类预算 | ⏳ Not started |
@@ -117,8 +117,12 @@ Cloud Run     还未部署（M13）
   handler 为每个 line item 创建一个独立的 TransactionCandidate（`MerchantName` = 中文商品名）。
   用户必须手动 confirm，AI 不自动入账。
 - **日文→中文翻译**：系统提示要求 AI 将商品名翻译为简体中文（コーヒー→咖啡，ポケモンカード→宝可梦卡片）。
-- **审核页可编辑**：`ai-confirm/page.tsx` 支持点击分类图标→分类选择器，点击名称/金额→内联编辑；
-  编辑缓存在本地，confirm 时先 PATCH edits 再 POST confirm。
+- **审核页设计对齐**：`ai-confirm/page.tsx` layout 与设计稿一致：
+  - 每张小票一个 group，含：receipt summary card（thumbnail+date+count+total）→ user hint →
+    shared fields card（类型/角色/日期/币种，日期可编辑）→ 分类汇总 chips → 逐项列表 → 低置信度警告
+  - ItemConfRow：分类图标（含分类名、warn badge）→ 商品名（tap 编辑）→ 金额（tap 编辑）→ ConfBadge → 排除/恢复
+  - 底部：拒绝全部 + 确认入账（N笔 · ¥total）
+  - 编辑缓存在本地（itemEdits + receiptEdits），confirm 时先 PATCH 再 POST confirm
 - **Bootstrap 幂等**：第一次登录调 `POST /api/households/bootstrap`，自动创 Household + 默认数据
 - **API envelope**：所有响应 `{ data, error }`，前端用 `apiFetch<T>` 统一解包
 - **中间件不导入 handler 包**：避免循环依赖，middleware/auth.go 直接 inline 写 401
