@@ -371,7 +371,6 @@ export default function SettingsPage() {
   const [editActor, setEditActor] = useState<Actor | null>(null);
   const [editPm, setEditPm] = useState<PaymentMethod | null>(null);
   const [showAddPm, setShowAddPm] = useState(false);
-  const [showAddAccount, setShowAddAccount] = useState(false);
   const [editCat, setEditCat] = useState<Category | null>(null);
   const [addCatType, setAddCatType] = useState<'expense' | 'income' | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -390,7 +389,6 @@ export default function SettingsPage() {
       {editActor && <EditActorSheet actor={editActor} onClose={() => setEditActor(null)} onSaved={data.refresh} />}
       {editPm && <EditPaymentMethodSheet pm={editPm} onClose={() => setEditPm(null)} onSaved={data.refresh} />}
       {showAddPm && <AddPaymentMethodSheet onClose={() => setShowAddPm(false)} onSaved={data.refresh} />}
-      {showAddAccount && <AddAccountSheet onClose={() => setShowAddAccount(false)} onSaved={data.refresh} />}
       {editCat && <EditCategorySheet cat={editCat} onClose={() => setEditCat(null)} onSaved={data.refresh} />}
       {addCatType && <AddCategorySheet type={addCatType} onClose={() => setAddCatType(null)} onSaved={data.refresh} />}
 
@@ -437,10 +435,10 @@ export default function SettingsPage() {
           ))}
         </Card>
 
-        {/* Payment methods */}
+        {/* Payment methods + linked account balance */}
         <SectionLabel right={
           <span onClick={() => setShowAddPm(true)} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
-        }>支付方式</SectionLabel>
+        }>支付方式 &amp; 余额</SectionLabel>
         <Card pad={0} style={{ marginBottom: 16 }}>
           {data.paymentMethods.length === 0 ? (
             <div style={{ padding: '16px 14px', fontSize: 13, color: T.textMute, textAlign: 'center' }}>暂无支付方式</div>
@@ -448,50 +446,33 @@ export default function SettingsPage() {
             data.paymentMethods.map((pm, i) => {
               const color = ACCT_TYPE_COLOR[pm.type];
               const label = ACCT_TYPE_LABEL[pm.type];
+              const account = pm.accountId ? data.account(pm.accountId) : undefined;
+              const isCreditCard = pm.type === 'credit_card';
               return (
                 <div key={pm.id} onClick={() => setEditPm(pm)}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, cursor: 'pointer', opacity: pm.isActive ? 1 : 0.45 }}>
                   <div style={{ width: 36, height: 22, borderRadius: 4, background: color, color: '#fff', fontSize: 8, fontWeight: 700, letterSpacing: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{label}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, color: T.ink }}>{pm.name}</div>
-                    {!pm.isActive && <div style={{ fontSize: 10, color: T.textMute, marginTop: 1 }}>已停用</div>}
-                  </div>
-                  <span style={{ color: T.textDim, fontSize: 12 }}>›</span>
-                </div>
-              );
-            })
-          )}
-        </Card>
-
-        {/* Accounts */}
-        <SectionLabel right={
-          <span onClick={() => setShowAddAccount(true)} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
-        }>账户余额</SectionLabel>
-        <Card pad={0} style={{ marginBottom: 16 }}>
-          {data.accounts.length === 0 ? (
-            <div style={{ padding: '16px 14px', fontSize: 13, color: T.textMute, textAlign: 'center' }}>暂无账户</div>
-          ) : (
-            data.accounts.map((a, i) => {
-              const color = ACCT_TYPE_COLOR[a.type];
-              const label = ACCT_TYPE_LABEL[a.type];
-              return (
-                <div key={a.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, opacity: a.isActive ? 1 : 0.45 }}>
-                  <div style={{ width: 36, height: 22, borderRadius: 4, background: color, color: '#fff', fontSize: 8, fontWeight: 700, letterSpacing: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{label}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, color: T.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {a.name}
-                      {a.currency !== 'JPY' && (
-                        <span style={{ fontSize: 8, fontFamily: NUM_FONT, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>{a.currency}</span>
-                      )}
+                    <div style={{ fontSize: 10, color: T.textMute, marginTop: 1 }}>
+                      {!pm.isActive ? '已停用' : account ? account.name : '无余额追踪'}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: NUM_FONT }}>
-                      {a.currency === 'JPY' ? '¥' : '¥'}{a.currentBalance.toLocaleString()}
+                  {account && (
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: isCreditCard ? T.warning : T.textMute, fontWeight: 500 }}>
+                        {isCreditCard ? '待还' : '余额'}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, fontFamily: NUM_FONT, color: isCreditCard ? T.warning : T.ink }}>
+                        {account.currency === 'CNY' ? '¥' : '¥'}{account.currentBalance.toLocaleString()}
+                        {account.currency !== 'JPY' && (
+                          <span style={{ fontSize: 8, marginLeft: 2, color: T.warning }}>{account.currency}</span>
+                        )}
+                      </div>
                     </div>
-                    {!a.isActive && <div style={{ fontSize: 10, color: T.textMute }}>已停用</div>}
-                  </div>
+                  )}
+                  {!account && <span style={{ fontSize: 10, color: T.textDim }}>—</span>}
+                  <span style={{ color: T.textDim, fontSize: 12, marginLeft: 2 }}>›</span>
                 </div>
               );
             })
