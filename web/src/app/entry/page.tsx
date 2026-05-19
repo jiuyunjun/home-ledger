@@ -74,7 +74,6 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const [note, setNote] = useState('');
 
   const amount = currency === 'JPY' ? Math.round(parseFloat(amountStr) || 0) : parseFloat(amountStr) || 0;
-  const displayAmount = amountStr || '0';
 
   function handleSave() {
     if (amount <= 0) return;
@@ -104,20 +103,21 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
     <>
       {/* Amount input area */}
       <div style={{ padding: '18px 0 20px', textAlign: 'center', borderBottom: `1px solid ${T.borderSoft}` }}>
-        <div style={{ fontSize: 11, color: T.textMute, marginBottom: 4 }}>{isIncome ? '入账金额' : '支出金额'}</div>
-        <label style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, cursor: 'text' }}>
-          <span style={{ fontFamily: NUM_FONT, fontSize: 22, color: T.textMute }}>¥</span>
+        <div style={{ fontSize: 11, color: T.textMute, marginBottom: 8 }}>{isIncome ? '入账金额' : '支出金额'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <span style={{ fontFamily: NUM_FONT, fontSize: 24, color: T.textMute, lineHeight: 1 }}>¥</span>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            min="0"
             value={amountStr}
-            onChange={(e) => setAmountStr(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^\d.]/g, '');
+              if ((v.match(/\./g) ?? []).length <= 1) setAmountStr(v);
+            }}
             placeholder="0"
-            style={{ fontFamily: NUM_FONT, fontSize: 40, fontWeight: 600, color: T.ink, letterSpacing: -1, lineHeight: 1, border: 'none', outline: 'none', background: 'transparent', width: `${Math.max(2, displayAmount.length)}ch`, textAlign: 'left', padding: 0 }}
+            style={{ fontFamily: NUM_FONT, fontSize: 44, fontWeight: 600, color: T.ink, letterSpacing: -1, lineHeight: 1, border: 'none', outline: 'none', background: 'transparent', width: '7ch', textAlign: 'center', padding: 0, caretColor: accentColor }}
           />
-          <span className="cursor-blink" style={{ width: 2, height: 32, background: accentColor, marginLeft: 4, display: 'inline-block' }} />
-        </label>
+        </div>
         <div style={{ marginTop: 10, display: 'inline-flex', gap: 4, padding: 2, background: T.bgSubtle, borderRadius: 8 }}>
           {(['JPY', 'CNY'] as const).map((cc) => {
             const on = cc === currency;
@@ -304,9 +304,13 @@ function EntryContent() {
           {MODES.map((m) => {
             const on = m.id === mode;
             return (
-              <a key={m.id} href={`/entry?mode=${m.id}`} style={{ textDecoration: 'none', flex: 1, textAlign: 'center', padding: '7px 0', borderRadius: 8, fontSize: 13, fontWeight: 500, background: on ? '#fff' : 'transparent', color: on ? m.color : T.textSoft, boxShadow: on ? '0 1px 2px rgba(0,0,0,0.04)' : 'none', fontFamily: CN_FONT }}>
+              <div
+                key={m.id}
+                onClick={() => !on && router.replace(`/entry?mode=${m.id}`)}
+                style={{ flex: 1, textAlign: 'center', padding: '7px 0', borderRadius: 8, fontSize: 13, fontWeight: 500, background: on ? '#fff' : 'transparent', color: on ? m.color : T.textSoft, boxShadow: on ? '0 1px 2px rgba(0,0,0,0.04)' : 'none', fontFamily: CN_FONT, cursor: on ? 'default' : 'pointer' }}
+              >
                 {m.label}
-              </a>
+              </div>
             );
           })}
         </div>
