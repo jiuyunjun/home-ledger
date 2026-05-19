@@ -101,8 +101,10 @@ function reducer(state: AppState, action: AppAction): AppState {
 
 // ── Initial state ─────────────────────────────────────────────────────────────
 
+const LEGACY_MOCK_IDS = new Set(['me', 'her', 'family']);
+
 const INITIAL_STATE: AppState = {
-  currentRole: 'me',
+  currentRole: '',
   transactions: transactionsJson as Transaction[],
   accounts: accountsJson as Account[],
   budgets: budgetsJson as Budget[],
@@ -122,7 +124,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Restore currentRole from localStorage on first render
     if (typeof window === 'undefined') return init;
     const saved = localStorage.getItem('currentRole') as RoleId | null;
-    return saved ? { ...init, currentRole: saved } : init;
+    const role = saved && !LEGACY_MOCK_IDS.has(saved) ? saved : '';
+    return role ? { ...init, currentRole: role } : init;
   });
 
   // Persist currentRole to localStorage whenever it changes

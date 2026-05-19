@@ -437,6 +437,7 @@ export default function AIConfirmPage() {
   const [rejected, setRejected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -481,6 +482,7 @@ export default function AIConfirmPage() {
   async function handleConfirmAll() {
     if (acting || active.length === 0) return;
     setActing(true);
+    setConfirmError('');
     try {
       for (const c of active) {
         const rEdit = receiptEdits[c.subReceiptId ?? c.receiptId] ?? {};
@@ -500,8 +502,8 @@ export default function AIConfirmPage() {
         await apiPost(`/api/transaction-candidates/${id}/reject`, {});
       }
       router.push('/transactions');
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setConfirmError(e?.message ?? '操作失败，请重试');
     } finally {
       setActing(false);
     }
@@ -574,6 +576,11 @@ export default function AIConfirmPage() {
         </div>
       </div>
 
+      {confirmError && (
+        <div style={{ padding: '8px 16px', background: T.dangerSoft, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ fontSize: 12, color: T.danger, textAlign: 'center' }}>{confirmError}</div>
+        </div>
+      )}
       <div style={{ padding: '10px 16px 18px', borderTop: `1px solid ${T.borderSoft}`, background: 'rgba(251,248,242,0.96)', display: 'flex', gap: 8, alignItems: 'stretch' }}>
         <Button variant="danger" size="lg" style={{ flex: 1 }} onClick={handleRejectAll} disabled={acting || active.length === 0}>
           拒绝

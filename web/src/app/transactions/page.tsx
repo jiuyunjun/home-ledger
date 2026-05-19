@@ -7,7 +7,7 @@ import { Amount } from '@/components/ui/Amount';
 import { Card } from '@/components/ui/Card';
 import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
-import { apiGet } from '@/lib/api';
+import { apiDelete, apiGet, apiPatch } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import { T, NUM_FONT, CN_FONT } from '@/lib/tokens';
 import type { ApiTransaction } from '@/lib/types';
@@ -29,24 +29,190 @@ function fmtDay(dateStr: string) {
   return { md: `${m}月${day}日`, wd };
 }
 
-function ApiTxRow({ tx }: { tx: ApiTransaction }) {
+function Backdrop({ onClose }: { onClose: () => void }) {
+  return <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(0,0,0,0.32)' }} />;
+}
+
+function CategoryPicker({ currentId, onSelect, onClose }: {
+  currentId: string; onSelect: (id: string) => void; onClose: () => void;
+}) {
   const data = useData();
-  const { state } = useApp();
+  const cats = data.expenseCategories();
+  return (
+    <>
+      <Backdrop onClose={onClose} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>选择分类</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
+          {cats.map((cat) => {
+            const { mark, tint } = catDisplay(cat.name);
+            const selected = cat.id === currentId;
+            return (
+              <div key={cat.id} onClick={() => { onSelect(cat.id); onClose(); }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', opacity: selected ? 1 : 0.72, width: 48 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600, fontFamily: CN_FONT, color: T.ink, border: selected ? `2px solid ${T.accent}` : '2px solid transparent' }}>{mark}</div>
+                <div style={{ fontSize: 10, color: T.textSoft, whiteSpace: 'nowrap', textAlign: 'center' }}>{cat.name}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div onClick={onClose} style={{ marginTop: 14, textAlign: 'center', fontSize: 12, color: T.textMute, cursor: 'pointer' }}>取消</div>
+      </div>
+    </>
+  );
+}
+
+function EditSheet({ tx, onSave, onClose }: {
+  tx: ApiTransaction;
+  onSave: (patch: Record<string, string>) => Promise<void>;
+  onClose: () => void;
+}) {
+  const data = useData();
+  const [title, setTitle] = useState(tx.title ?? '');
+  const [date, setDate] = useState(tx.transactionDate);
+  const [memo, setMemo] = useState(tx.memo ?? '');
+  const [categoryId, setCategoryId] = useState(tx.categoryId ?? '');
+  const [showCatPicker, setShowCatPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const cat = data.category(categoryId);
+  const { mark, tint } = catDisplay(cat?.name ?? '');
+
+  async function handleSave() {
+    setSaving(true);
+    const patch: Record<string, string> = {};
+    if (title !== (tx.title ?? '')) patch.title = title;
+    if (date !== tx.transactionDate) patch.transactionDate = date;
+    if (memo !== (tx.memo ?? '')) patch.memo = memo;
+    if (categoryId !== (tx.categoryId ?? '')) patch.categoryId = categoryId;
+    try {
+      await onSave(patch);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      {showCatPicker && (
+        <CategoryPicker currentId={categoryId} onSelect={setCategoryId} onClose={() => setShowCatPicker(false)} />
+      )}
+      <Backdrop onClose={onClose} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 97, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 18 }}>编辑记录</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>名称</label>
+            <input value={title} onChange={e => setTitle(e.target.value)}
+              placeholder="可为空（使用分类名）"
+              style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>日期</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+          </div>
+          {tx.transactionType !== 'transfer' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>分类</label>
+              <div onClick={() => setShowCatPicker(true)}
+                style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, background: T.surfaceAlt, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontFamily: CN_FONT, color: T.ink }}>{mark}</div>
+                <span style={{ fontSize: 14, color: T.ink }}>{cat?.name ?? '未分类'}</span>
+                <span style={{ marginLeft: 'auto', color: T.textDim }}>›</span>
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>备注</label>
+            <input value={memo} onChange={e => setMemo(e.target.value)}
+              placeholder="可选"
+              style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose}
+            style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: `1px solid ${T.border}`, background: T.surface, fontSize: 14, color: T.textSoft, cursor: 'pointer', fontWeight: 500 }}>
+            取消
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ flex: 2, padding: '12px 0', borderRadius: 10, border: 'none', background: T.accent, fontSize: 14, color: '#fff', cursor: saving ? 'default' : 'pointer', fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
+            {saving ? '保存中…' : '保存'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ActionRow({ onEdit, onDelete, confirming, onConfirmDelete, onCancelDelete }: {
+  onEdit: () => void;
+  onDelete: () => void;
+  confirming: boolean;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}) {
+  if (confirming) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px 10px', borderTop: `1px solid ${T.borderSoft}` }}>
+        <span style={{ flex: 1, fontSize: 12, color: T.danger, paddingLeft: 4 }}>确认删除这笔记录？</span>
+        <button onClick={(e) => { e.stopPropagation(); onCancelDelete(); }}
+          style={{ padding: '6px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.textSoft, cursor: 'pointer' }}>
+          取消
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onConfirmDelete(); }}
+          style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: T.danger, fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+          删除
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', gap: 8, padding: '6px 4px 10px', borderTop: `1px solid ${T.borderSoft}` }}>
+      <button onClick={(e) => { e.stopPropagation(); onEdit(); }}
+        style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.ink, cursor: 'pointer', fontWeight: 500 }}>
+        编辑
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `1px solid ${T.dangerSoft}`, background: T.dangerSoft, fontSize: 12, color: T.danger, cursor: 'pointer', fontWeight: 500 }}>
+        删除
+      </button>
+    </div>
+  );
+}
+
+function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirmDelete, onCancelDelete }: {
+  tx: ApiTransaction;
+  expanded: boolean;
+  confirming: boolean;
+  onTap: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}) {
+  const data = useData();
   const pad = '10px 4px';
 
   if (tx.transactionType === 'transfer') {
     const from = data.account(tx.fromAccountId ?? '');
     const to = data.account(tx.toAccountId ?? '');
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: pad }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: T.transferSoft, color: T.transfer, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600, flexShrink: 0 }}>⇄</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {from?.name ?? '—'} → {to?.name ?? '—'}
+      <div>
+        <div onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: pad, cursor: 'pointer' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: T.transferSoft, color: T.transfer, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600, flexShrink: 0 }}>⇄</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {from?.name ?? '—'} → {to?.name ?? '—'}
+            </div>
+            <div style={{ fontSize: 11, color: T.textMute, marginTop: 2, fontFamily: NUM_FONT }}>转账</div>
           </div>
-          <div style={{ fontSize: 11, color: T.textMute, marginTop: 2, fontFamily: NUM_FONT }}>转账</div>
+          <Amount value={tx.amount} size={13} weight={500} color={T.textSoft} currency={tx.currency} showCurrency={tx.currency !== 'JPY'} />
+          <span style={{ fontSize: 11, color: T.textDim, marginLeft: 6 }}>{expanded ? '∨' : '›'}</span>
         </div>
-        <Amount value={tx.amount} size={13} weight={500} color={T.textSoft} currency={tx.currency} showCurrency={tx.currency !== 'JPY'} />
+        {expanded && (
+          <ActionRow onEdit={onEdit} onDelete={onDelete} confirming={confirming} onConfirmDelete={onConfirmDelete} onCancelDelete={onCancelDelete} />
+        )}
       </div>
     );
   }
@@ -57,46 +223,50 @@ function ApiTxRow({ tx }: { tx: ApiTransaction }) {
   const isIncome = tx.transactionType === 'income';
   const { mark, tint } = catDisplay(cat?.name ?? '');
 
-  // Find actor color from AppContext mock roles for display
   const actorColors: Record<string, string> = {};
   const actors = data.actors;
   const colorPalette = [T.roleMe, T.roleHer, T.roleFamily];
   actors.forEach((a, i) => { actorColors[a.id] = colorPalette[i % colorPalette.length]; });
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: pad }}>
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, fontFamily: CN_FONT, flexShrink: 0, color: T.ink }}>{mark}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {tx.title || cat?.name || '—'}
+    <div>
+      <div onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: pad, cursor: 'pointer' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, fontFamily: CN_FONT, flexShrink: 0, color: T.ink }}>{mark}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {tx.title || cat?.name || '—'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: T.textMute }}>
+            {isIncome && <span style={{ background: T.incomeSoft, color: T.income, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>入账</span>}
+            {actor && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ width: 5, height: 5, borderRadius: 3, background: actorColors[actor.id] }} />
+                {actor.displayName}
+              </span>
+            )}
+            {pm && (
+              <>
+                <span style={{ color: T.textDim }}>·</span>
+                <span style={{ fontFamily: NUM_FONT }}>{pm.name}</span>
+              </>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: T.textMute }}>
-          {isIncome && <span style={{ background: T.incomeSoft, color: T.income, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>入账</span>}
-          {actor && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 5, height: 5, borderRadius: 3, background: actorColors[actor.id] }} />
-              {actor.displayName}
-            </span>
-          )}
-          {pm && (
-            <>
-              <span style={{ color: T.textDim }}>·</span>
-              <span style={{ fontFamily: NUM_FONT }}>{pm.name}</span>
-            </>
-          )}
-        </div>
+        <Amount
+          value={tx.amount}
+          size={14}
+          weight={600}
+          currency={tx.currency}
+          color={isIncome ? T.income : T.ink}
+          sign={isIncome ? '+' : ''}
+        />
+        <span style={{ fontSize: 11, color: T.textDim, marginLeft: 6 }}>{expanded ? '∨' : '›'}</span>
       </div>
-      <Amount
-        value={tx.amount}
-        size={14}
-        weight={600}
-        currency={tx.currency}
-        color={isIncome ? T.income : T.ink}
-        sign={isIncome ? '+' : ''}
-      />
+      {expanded && (
+        <ActionRow onEdit={onEdit} onDelete={onDelete} confirming={confirming} onConfirmDelete={onConfirmDelete} onCancelDelete={onCancelDelete} />
+      )}
     </div>
   );
-  void state;
 }
 
 export default function TransactionsPage() {
@@ -105,24 +275,58 @@ export default function TransactionsPage() {
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [editingTx, setEditingTx] = useState<ApiTransaction | null>(null);
+
   const month = new Date().toISOString().slice(0, 7);
 
-  useEffect(() => {
+  async function loadTxs() {
     setLoading(true);
     const params = new URLSearchParams({ month });
     if (state.currentRole) params.set('actorId', state.currentRole);
-    apiGet<ApiTransaction[]>(`/api/transactions?${params}`)
-      .then((data) => {
-        // transfers always show regardless of actorId filter
-        setTxs(data);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    try {
+      const data = await apiGet<ApiTransaction[]>(`/api/transactions?${params}`);
+      setTxs(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadTxs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentRole, month]);
 
+  function handleRowTap(txId: string) {
+    if (expanded === txId) {
+      setExpanded(null);
+      setDeleteConfirm(null);
+    } else {
+      setExpanded(txId);
+      setDeleteConfirm(null);
+    }
+  }
+
+  async function handleSaveEdit(patch: Record<string, string>) {
+    if (!editingTx) return;
+    await apiPatch(`/api/transactions/${editingTx.id}`, patch);
+    setEditingTx(null);
+    setExpanded(null);
+    await loadTxs();
+  }
+
+  async function handleConfirmDelete(txId: string) {
+    await apiDelete(`/api/transactions/${txId}`);
+    setTxs((prev) => prev.filter((t) => t.id !== txId));
+    setExpanded(null);
+    setDeleteConfirm(null);
+  }
+
   const filtered = txs.filter((t) => {
-    const typeMatch = typeFilter === 'all' || t.transactionType === typeFilter;
-    return typeMatch;
+    return typeFilter === 'all' || t.transactionType === typeFilter;
   });
 
   const byDate: Record<string, ApiTransaction[]> = {};
@@ -131,6 +335,10 @@ export default function TransactionsPage() {
 
   return (
     <PhoneScreen>
+      {editingTx && (
+        <EditSheet tx={editingTx} onSave={handleSaveEdit} onClose={() => setEditingTx(null)} />
+      )}
+
       <AppBar
         title="明细"
         subtitle={`${month.replace('-', ' 年 ')} 月 · 共 ${filtered.length} 笔`}
@@ -176,7 +384,16 @@ export default function TransactionsPage() {
               <Card pad={4}>
                 {byDate[d].map((tx, i) => (
                   <div key={tx.id} style={{ padding: '0 8px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, background: tx.transactionType === 'transfer' ? `${T.transferSoft}40` : 'transparent' }}>
-                    <ApiTxRow tx={tx} />
+                    <ApiTxRow
+                      tx={tx}
+                      expanded={expanded === tx.id}
+                      confirming={deleteConfirm === tx.id}
+                      onTap={() => handleRowTap(tx.id)}
+                      onEdit={() => setEditingTx(tx)}
+                      onDelete={() => setDeleteConfirm(tx.id)}
+                      onConfirmDelete={() => handleConfirmDelete(tx.id)}
+                      onCancelDelete={() => setDeleteConfirm(null)}
+                    />
                   </div>
                 ))}
               </Card>
