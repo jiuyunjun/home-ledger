@@ -1,9 +1,11 @@
 import { T } from '@/lib/tokens';
 
-export function Toggle({ on }: { on: boolean }) {
+export function Toggle({ on, onClick }: { on: boolean; onClick?: () => void }) {
   return (
     <div
+      onClick={onClick}
       style={{
+        cursor: onClick ? 'pointer' : 'default',
         width: 36,
         height: 20,
         borderRadius: 10,

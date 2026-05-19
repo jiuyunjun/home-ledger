@@ -1,3 +1,5 @@
+'use client';
+
 import { AppBar } from '@/components/layout/AppBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PhoneScreen } from '@/components/layout/PhoneScreen';
@@ -9,10 +11,20 @@ import { RolePill } from '@/components/ui/RolePill';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Toggle } from '@/components/ui/Toggle';
 import { TypeBadge } from '@/components/ui/TypeBadge';
-import { acctById, catById, FIXED, roleById } from '@/lib/data';
+import { useApp } from '@/context/AppContext';
+import { FixedRule, acctById, catById, roleById } from '@/lib/data';
 import { NUM_FONT, T } from '@/lib/tokens';
+import { useState } from 'react';
 
-function FixedRow({ f }: { f: typeof FIXED[number] }) {
+type TabId = 'all' | 'expense' | 'income';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'all',     label: '全部'   },
+  { id: 'expense', label: '固定支出' },
+  { id: 'income',  label: '固定入账' },
+];
+
+function FixedRow({ f, onToggle }: { f: FixedRule; onToggle: () => void }) {
   const c = catById(f.cat);
   const r = roleById(f.role);
   const a = acctById(f.acct);
@@ -43,7 +55,7 @@ function FixedRow({ f }: { f: typeof FIXED[number] }) {
               {f.enabled ? '下次生成 ' : '已暂停 · '}
               <span style={{ color: f.enabled ? T.ink : T.textMute, fontFamily: NUM_FONT, fontWeight: 600 }}>{f.next}</span>
             </span>
-            <Toggle on={f.enabled} />
+            <Toggle on={f.enabled} onClick={onToggle} />
           </div>
         </div>
       </div>
@@ -52,9 +64,19 @@ function FixedRow({ f }: { f: typeof FIXED[number] }) {
 }
 
 export default function FixedPage() {
-  const active = FIXED.filter((f) => f.enabled);
+  const { state, dispatch } = useApp();
+  const { fixedRules } = state;
+  const [tab, setTab] = useState<TabId>('all');
+
+  const visible = tab === 'all' ? fixedRules : fixedRules.filter((f) => f.type === tab);
+  const active = fixedRules.filter((f) => f.enabled);
   const monthlyEx = active.filter((f) => f.type === 'expense').reduce((a, b) => a + b.amount, 0);
   const monthlyIn = active.filter((f) => f.type === 'income').reduce((a, b) => a + b.amount, 0);
+
+  const nextDate = fixedRules
+    .filter((f) => f.enabled && f.next !== '—')
+    .map((f) => f.next)
+    .sort()[0] ?? '—';
 
   return (
     <PhoneScreen>
@@ -90,23 +112,35 @@ export default function FixedPage() {
                 sign={monthlyIn > monthlyEx ? '+' : ''}
               />
             </span>
-            <span>下次生成 <span style={{ color: T.ink, fontFamily: NUM_FONT, fontWeight: 600 }}>05-20</span></span>
+            <span>下次生成 <span style={{ color: T.ink, fontFamily: NUM_FONT, fontWeight: 600 }}>{nextDate.slice(5)}</span></span>
           </div>
         </Card>
 
         {/* Type tabs */}
         <div style={{ display: 'flex', gap: 4, padding: 3, marginBottom: 10, background: T.bgSubtle, borderRadius: 8 }}>
-          {[{ id: 'all', label: '全部' }, { id: 'expense', label: '固定支出' }, { id: 'income', label: '固定入账' }].map((t) => {
-            const on = t.id === 'all';
+          {TABS.map((t) => {
+            const on = t.id === tab;
             return (
-              <div key={t.id} style={{ flex: 1, textAlign: 'center', padding: '5px 0', borderRadius: 6, fontSize: 12, fontWeight: 500, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, boxShadow: on ? '0 1px 2px rgba(0,0,0,0.04)' : 'none' }}>{t.label}</div>
+              <div
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{ flex: 1, textAlign: 'center', padding: '5px 0', borderRadius: 6, fontSize: 12, fontWeight: 500, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, boxShadow: on ? '0 1px 2px rgba(0,0,0,0.04)' : 'none', cursor: 'pointer' }}
+              >
+                {t.label}
+              </div>
             );
           })}
         </div>
 
-        <SectionLabel>所有规则</SectionLabel>
+        <SectionLabel right={`${visible.length} 项`}>所有规则</SectionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {FIXED.map((f) => <FixedRow key={f.id} f={f} />)}
+          {visible.map((f) => (
+            <FixedRow
+              key={f.id}
+              f={f}
+              onToggle={() => dispatch({ type: 'TOGGLE_FIXED_RULE', ruleId: f.id })}
+            />
+          ))}
         </div>
       </div>
       <BottomNav />
