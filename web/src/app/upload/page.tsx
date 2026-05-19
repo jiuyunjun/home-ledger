@@ -102,6 +102,7 @@ export default function UploadPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [hint, setHint] = useState('');
+  const [compress, setCompress] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -122,10 +123,10 @@ export default function UploadPage() {
     setQueue((prev) => [...prev, ...items]);
 
     for (let i = 0; i < arr.length; i++) {
-      const compressed = await compressImage(arr[i]);
+      const file = compress ? await compressImage(arr[i]) : arr[i];
       setQueue((prev) => prev.map((q) =>
         q.id === items[i].id
-          ? { ...q, status: 'ready', compressedSize: fmtSize(compressed.size), file: compressed }
+          ? { ...q, status: 'ready', compressedSize: fmtSize(file.size), file }
           : q,
       ));
     }
@@ -206,10 +207,22 @@ export default function UploadPage() {
         >
           <div style={{ width: 50, height: 50, borderRadius: 25, margin: '0 auto 8px', background: T.surface, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: T.accent, fontWeight: 300 }}>↑</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>拖入小票图片</div>
-          <div style={{ fontSize: 11, color: T.textMute, marginTop: 4 }}>支持多张同时上传 · JPG / PNG / HEIC · 自动压缩</div>
+          <div style={{ fontSize: 11, color: T.textMute, marginTop: 4 }}>支持多张同时上传 · JPG / PNG / HEIC</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'center' }}>
             <Button variant="primary" size="md" onClick={() => fileInputRef.current?.click()}>选择文件</Button>
             <Button variant="secondary" size="md" onClick={() => cameraInputRef.current?.click()}>拍照</Button>
+          </div>
+        </div>
+
+        {/* Compress toggle */}
+        <div onClick={() => setCompress((v) => !v)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', marginTop: 10, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, cursor: 'pointer' }}>
+          <div>
+            <div style={{ fontSize: 13, color: T.ink, fontWeight: 500 }}>压缩图片</div>
+            <div style={{ fontSize: 10, color: T.textMute, marginTop: 1 }}>压缩后体积更小，但可能降低 AI 识别精度</div>
+          </div>
+          <div style={{ width: 36, height: 20, borderRadius: 10, background: compress ? T.accent : T.bgSubtle, position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: 2, left: compress ? 18 : 2, width: 16, height: 16, borderRadius: 8, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s' }} />
           </div>
         </div>
 
