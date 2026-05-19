@@ -80,6 +80,28 @@ Reason:
 - The MVP needs simple household spending control.
 - Budget usage should count confirmed expenses only.
 
+## ADR-010: Client-side image compression before upload
+
+Decision:
+- The frontend compresses receipt images in the browser before sending to the API.
+- Target: longest edge ≤ 1600 px, JPEG quality 85%.
+- Implementation: browser Canvas API, no external library.
+
+Reason:
+- Phone photos are typically 10–50 MB. OpenAI Vision does not need original resolution to read receipt text.
+- Compressing to ~300–800 KB reduces upload time and OpenAI token cost while preserving readability.
+
+## ADR-011: Cloud Storage lifecycle — Standard 90 days → Archive
+
+Decision:
+- Receipt images are stored in Cloud Storage Standard class for 90 days, then automatically transitioned to Archive class.
+- Images are not deleted automatically.
+
+Reason:
+- Standard class covers the active review window. Archive class significantly reduces storage cost for infrequently accessed historical receipts.
+- Archive retrieval cost is acceptable for a two-person app where post-90-day access is rare (mainly AI re-extraction on failure).
+- Archive has a 365-day minimum storage duration; that cost is acceptable at this scale.
+
 ## ADR-009: Receipt upload accepts AI user notes
 
 Decision:
