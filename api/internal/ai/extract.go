@@ -69,10 +69,11 @@ Return ONLY this JSON object — no markdown, no explanation:
 }
 
 CRITICAL — receipt splitting:
-- If the photo shows 1 paper receipt → "receipts" has 1 element.
-- If the photo shows 2 paper receipts → "receipts" has 2 elements, one per paper.
+- Count the distinct physical paper receipts visible. One paper = one element.
+- If the photo shows 1 paper receipt → "receipts" has exactly 1 element.
+- If the photo shows 2 paper receipts → "receipts" has exactly 2 elements.
+- NEVER duplicate a receipt. Each physical paper must appear exactly once.
 - NEVER mix line items from different physical receipts into the same element.
-  Each element must contain only items from its own paper receipt.
 
 Rules (apply independently to each receipt):
 - currency: "JPY" if ¥ or 円; "CNY" if 元 or 人民币. Default "JPY".

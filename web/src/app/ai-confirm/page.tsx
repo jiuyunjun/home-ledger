@@ -28,6 +28,7 @@ interface Candidate {
   suggestedAmount: number;
   suggestedCurrency: string;
   suggestedCategoryId: string;
+  suggestedPaymentMethodId?: string;
   merchantName: string;
   aiUserNote: string;
   confidence: number;
@@ -467,7 +468,7 @@ export default function AIConfirmPage() {
   for (const c of candidates) {
     const key = c.subReceiptId ?? c.receiptId;
     if (!groupMap.has(key)) {
-      groupMap.set(key, { key, receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: '', items: [] });
+      groupMap.set(key, { key, receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: c.suggestedPaymentMethodId ?? '', items: [] });
     }
     groupMap.get(key)!.items.push(c);
   }
