@@ -10,10 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/home-ledger/api/internal/handler"
 )
 
 func main() {
+	// Load .env in development (ignored if file absent, e.g. on Cloud Run).
+	_ = godotenv.Load()
+
 	// Structured JSON logging for Cloud Run
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
