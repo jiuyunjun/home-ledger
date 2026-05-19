@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"sort"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/grpc/codes"
@@ -34,7 +35,6 @@ func ListBudgets(ctx context.Context, householdID, month string) ([]*domain.Mont
 	docs, err := fs(ctx).Collection("monthlyBudgets").
 		Where("householdId", "==", householdID).
 		Where("month", "==", month).
-		OrderBy("createdAt", firestore.Asc).
 		Documents(ctx).GetAll()
 	if err != nil {
 		return nil, err
@@ -47,6 +47,10 @@ func ListBudgets(ctx context.Context, householdID, month string) ([]*domain.Mont
 		}
 		budgets = append(budgets, &b)
 	}
+	// Sort by createdAt ascending in Go to avoid requiring a composite index.
+	sort.Slice(budgets, func(i, j int) bool {
+		return budgets[i].CreatedAt.Before(budgets[j].CreatedAt)
+	})
 	return budgets, nil
 }
 
