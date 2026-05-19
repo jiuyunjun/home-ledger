@@ -3,7 +3,7 @@
 import { T } from '@/lib/tokens';
 import Link from 'next/link';
 
-type NavId = 'home' | 'list' | 'add' | 'budget' | 'me';
+type NavId = 'home' | 'list' | 'add' | 'fixed' | 'me';
 
 interface Props {
   active?: NavId;
@@ -13,7 +13,7 @@ const items: { id: NavId; label: string; icon: string; href: string; primary?: b
   { id: 'home',   label: '首页', icon: '⊞', href: '/' },
   { id: 'list',   label: '明细', icon: '≡', href: '/transactions' },
   { id: 'add',    label: '',    icon: '+', href: '/entry', primary: true },
-  { id: 'budget', label: '预算', icon: '◎', href: '/budget' },
+  { id: 'fixed',  label: '固定', icon: '↻', href: '/fixed' },
   { id: 'me',     label: '设置', icon: '◉', href: '/settings' },
 ];
 

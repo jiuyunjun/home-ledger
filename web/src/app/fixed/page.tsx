@@ -456,7 +456,7 @@ export default function FixedPage() {
           </>
         )}
       </div>
-      <BottomNav />
+      <BottomNav active="fixed" />
     </PhoneScreen>
   );
 }

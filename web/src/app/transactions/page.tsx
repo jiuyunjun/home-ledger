@@ -171,13 +171,34 @@ function EditSheet({ tx, onSave, onClose }: {
   );
 }
 
-function ActionRow({ onEdit, onDelete, confirming, onConfirmDelete, onCancelDelete }: {
+function ReceiptViewer({ receiptId, onClose }: { receiptId: string; onClose: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    apiGetBlob(`/api/receipts/${receiptId}/image`).then(setUrl).catch(() => {});
+  }, [receiptId]);
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 102, background: 'rgba(0,0,0,0.72)' }} />
+      <div style={{ position: 'absolute', top: '50%', left: 12, right: 12, transform: 'translateY(-50%)', zIndex: 103, borderRadius: 14, overflow: 'hidden', background: '#000' }}>
+        {url
+          ? <img src={url} alt="小票" style={{ width: '100%', display: 'block' }} />
+          : <div style={{ padding: 40, textAlign: 'center', color: '#fff', fontSize: 13 }}>加载中…</div>
+        }
+        <div onClick={onClose} style={{ position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: 14, background: 'rgba(0,0,0,0.5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, cursor: 'pointer' }}>×</div>
+      </div>
+    </>
+  );
+}
+
+function ActionRow({ receiptId, onEdit, onDelete, confirming, onConfirmDelete, onCancelDelete }: {
+  receiptId?: string;
   onEdit: () => void;
   onDelete: () => void;
   confirming: boolean;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
 }) {
+  const [showReceipt, setShowReceipt] = useState(false);
   if (confirming) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px 10px', borderTop: `1px solid ${T.borderSoft}` }}>
@@ -194,16 +215,25 @@ function ActionRow({ onEdit, onDelete, confirming, onConfirmDelete, onCancelDele
     );
   }
   return (
-    <div style={{ display: 'flex', gap: 8, padding: '6px 4px 10px', borderTop: `1px solid ${T.borderSoft}` }}>
-      <button onClick={(e) => { e.stopPropagation(); onEdit(); }}
-        style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.ink, cursor: 'pointer', fontWeight: 500 }}>
-        编辑
-      </button>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `1px solid ${T.dangerSoft}`, background: T.dangerSoft, fontSize: 12, color: T.danger, cursor: 'pointer', fontWeight: 500 }}>
-        删除
-      </button>
-    </div>
+    <>
+      {showReceipt && receiptId && <ReceiptViewer receiptId={receiptId} onClose={() => setShowReceipt(false)} />}
+      <div style={{ display: 'flex', gap: 8, padding: '6px 4px 10px', borderTop: `1px solid ${T.borderSoft}` }}>
+        {receiptId && (
+          <button onClick={(e) => { e.stopPropagation(); setShowReceipt(true); }}
+            style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.textSoft, cursor: 'pointer', fontWeight: 500 }}>
+            🧾
+          </button>
+        )}
+        <button onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.ink, cursor: 'pointer', fontWeight: 500 }}>
+          编辑
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `1px solid ${T.dangerSoft}`, background: T.dangerSoft, fontSize: 12, color: T.danger, cursor: 'pointer', fontWeight: 500 }}>
+          删除
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -237,7 +267,7 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
           <span style={{ fontSize: 11, color: T.textDim, marginLeft: 6 }}>{expanded ? '∨' : '›'}</span>
         </div>
         {expanded && (
-          <ActionRow onEdit={onEdit} onDelete={onDelete} confirming={confirming} onConfirmDelete={onConfirmDelete} onCancelDelete={onCancelDelete} />
+          <ActionRow receiptId={tx.receiptId} onEdit={onEdit} onDelete={onDelete} confirming={confirming} onConfirmDelete={onConfirmDelete} onCancelDelete={onCancelDelete} />
         )}
       </div>
     );
