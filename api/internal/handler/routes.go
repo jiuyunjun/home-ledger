@@ -68,9 +68,9 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Post("/transaction-candidates/{candidateId}/reject", rejectCandidate)
 
 		// Recurring rules (Milestone 10)
-		r.Get("/recurring-rules", notImplemented)
-		r.Post("/recurring-rules", notImplemented)
-		r.Patch("/recurring-rules/{ruleId}", notImplemented)
+		r.Get("/recurring-rules", listRecurringRules)
+		r.Post("/recurring-rules", createRecurringRule)
+		r.Patch("/recurring-rules/{ruleId}", patchRecurringRule)
 
 		// Monthly budgets (Milestone 11)
 		r.Get("/budgets", notImplemented)
@@ -79,7 +79,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Get("/budgets/usage", notImplemented)
 
 		// Scheduled jobs (Milestone 10)
-		r.Post("/jobs/generate-recurring-transactions", notImplemented)
+		r.Post("/jobs/generate-recurring-transactions", generateRecurringTransactions)
 	})
 
 	return r
