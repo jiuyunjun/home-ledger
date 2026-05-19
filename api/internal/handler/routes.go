@@ -49,6 +49,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Get("/categories", listCategories)
 		r.Post("/categories", createCategory)
 		r.Patch("/categories/{categoryId}", patchCategory)
+		r.Delete("/categories/{categoryId}", deleteCategory)
 
 		// Transactions
 		r.Get("/transactions", listTransactions)

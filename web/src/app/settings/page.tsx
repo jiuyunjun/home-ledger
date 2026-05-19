@@ -6,12 +6,11 @@ import { PhoneScreen } from '@/components/layout/PhoneScreen';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
-import { TypeBadge } from '@/components/ui/TypeBadge';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { apiDelete, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
-import type { AccountType, Actor, PaymentMethod } from '@/lib/types';
+import type { AccountType, Actor, Category, PaymentMethod } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -282,6 +281,86 @@ function AddAccountSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (
   );
 }
 
+// ─── Category sheets ─────────────────────────────────────────────────────────
+
+function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(cat.name);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await apiPatch(`/api/categories/${cat.id}`, { name: name.trim() });
+      onSaved();
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (cat.isDefault) { alert('系统默认分类不可删除'); return; }
+    if (!confirm(`删除分类「${cat.name}」？`)) return;
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/categories/${cat.id}`);
+      onSaved();
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <Sheet title="编辑分类" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <FieldRow label="名称" value={name} onChange={setName} />
+        <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving || deleting || !name.trim()}>
+          {saving ? '保存中…' : '保存'}
+        </Button>
+        <Button variant="danger" size="md" style={{ width: '100%' }} onClick={handleDelete} disabled={saving || deleting || cat.isDefault}>
+          {deleting ? '删除中…' : cat.isDefault ? '默认分类不可删除' : '删除此分类'}
+        </Button>
+      </div>
+    </Sheet>
+  );
+}
+
+function AddCategorySheet({ type, onClose, onSaved }: { type: 'expense' | 'income'; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSave() {
+    if (!name.trim()) { setError('请填写名称'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      await apiPost('/api/categories', { name: name.trim(), type });
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Sheet title={`新增${type === 'expense' ? '支出' : '入账'}分类`} onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <FieldRow label="名称" value={name} onChange={setName} placeholder="例：教育" />
+        {error && <div style={{ fontSize: 12, color: T.danger, textAlign: 'center' }}>{error}</div>}
+        <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving || !name.trim()}>
+          {saving ? '保存中…' : '添加'}
+        </Button>
+      </div>
+    </Sheet>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -293,6 +372,8 @@ export default function SettingsPage() {
   const [editPm, setEditPm] = useState<PaymentMethod | null>(null);
   const [showAddPm, setShowAddPm] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [editCat, setEditCat] = useState<Category | null>(null);
+  const [addCatType, setAddCatType] = useState<'expense' | 'income' | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -310,6 +391,8 @@ export default function SettingsPage() {
       {editPm && <EditPaymentMethodSheet pm={editPm} onClose={() => setEditPm(null)} onSaved={data.refresh} />}
       {showAddPm && <AddPaymentMethodSheet onClose={() => setShowAddPm(false)} onSaved={data.refresh} />}
       {showAddAccount && <AddAccountSheet onClose={() => setShowAddAccount(false)} onSaved={data.refresh} />}
+      {editCat && <EditCategorySheet cat={editCat} onClose={() => setEditCat(null)} onSaved={data.refresh} />}
+      {addCatType && <AddCategorySheet type={addCatType} onClose={() => setAddCatType(null)} onSaved={data.refresh} />}
 
       <AppBar title="设置" />
 
@@ -416,13 +499,16 @@ export default function SettingsPage() {
         </Card>
 
         {/* Expense categories */}
-        <SectionLabel right={<span style={{ color: T.textMute, fontSize: 10 }}>由系统预设</span>}>支出分类</SectionLabel>
+        <SectionLabel right={
+          <span onClick={() => setAddCatType('expense')} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
+        }>支出分类</SectionLabel>
         <Card pad={12} style={{ marginBottom: 8 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {expenseCats.map((c) => {
               const { mark, tint } = catDisplay(c.name);
               return (
-                <div key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px 4px 4px', borderRadius: 999, background: T.bgSubtle, fontSize: 12, color: T.ink }}>
+                <div key={c.id} onClick={() => setEditCat(c)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px 4px 4px', borderRadius: 999, background: T.bgSubtle, fontSize: 12, color: T.ink, cursor: 'pointer' }}>
                   <div style={{ width: 20, height: 20, borderRadius: 6, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontFamily: CN_FONT, fontWeight: 600 }}>{mark}</div>
                   {c.name}
                 </div>
@@ -432,16 +518,16 @@ export default function SettingsPage() {
         </Card>
 
         {/* Income categories */}
+        <SectionLabel right={
+          <span onClick={() => setAddCatType('income')} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
+        }>入账分类</SectionLabel>
         <Card pad={12} style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <TypeBadge type="income" />
-            <span style={{ fontSize: 11, color: T.textSoft }}>入账分类</span>
-          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {incomeCats.map((c) => {
               const { mark, tint } = catDisplay(c.name);
               return (
-                <div key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px 4px 4px', borderRadius: 999, background: T.incomeSoft ?? '#EBF5EC', fontSize: 12, color: T.ink }}>
+                <div key={c.id} onClick={() => setEditCat(c)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px 4px 4px', borderRadius: 999, background: '#EBF5EC', fontSize: 12, color: T.ink, cursor: 'pointer' }}>
                   <div style={{ width: 20, height: 20, borderRadius: 6, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontFamily: CN_FONT, fontWeight: 600 }}>{mark}</div>
                   {c.name}
                 </div>

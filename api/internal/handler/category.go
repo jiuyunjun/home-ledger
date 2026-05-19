@@ -118,3 +118,28 @@ func patchCategory(w http.ResponseWriter, r *http.Request) {
 	updated, _ := repo.GetCategory(r.Context(), catID)
 	writeJSON(w, http.StatusOK, updated)
 }
+
+func deleteCategory(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+
+	catID := chi.URLParam(r, "categoryId")
+	cat, err := repo.GetCategory(r.Context(), catID)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if cat == nil || cat.HouseholdID != claims.HouseholdID {
+		writeAppError(w, domain.NewNotFoundError("category"))
+		return
+	}
+
+	if err := repo.DeleteCategory(r.Context(), catID); err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}

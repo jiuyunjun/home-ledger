@@ -53,3 +53,8 @@ func UpdateCategory(ctx context.Context, id string, updates map[string]any) erro
 	_, err := fs(ctx).Collection("categories").Doc(id).Set(ctx, updates, firestore.MergeAll)
 	return err
 }
+
+func DeleteCategory(ctx context.Context, id string) error {
+	_, err := fs(ctx).Collection("categories").Doc(id).Delete(ctx)
+	return err
+}
