@@ -49,12 +49,12 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Post("/categories", createCategory)
 		r.Patch("/categories/{categoryId}", patchCategory)
 
-		// Transactions (Milestone 6)
-		r.Get("/transactions", notImplemented)
-		r.Post("/transactions", notImplemented)
-		r.Get("/transactions/{transactionId}", notImplemented)
-		r.Patch("/transactions/{transactionId}", notImplemented)
-		r.Delete("/transactions/{transactionId}", notImplemented)
+		// Transactions
+		r.Get("/transactions", listTransactions)
+		r.Post("/transactions", createTransaction)
+		r.Get("/transactions/{transactionId}", getTransaction)
+		r.Patch("/transactions/{transactionId}", patchTransaction)
+		r.Delete("/transactions/{transactionId}", deleteTransaction)
 
 		// Receipt upload + AI extraction (Milestone 7–8)
 		r.Post("/receipts/upload", notImplemented)

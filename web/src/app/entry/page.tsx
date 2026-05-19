@@ -6,10 +6,13 @@ import { PhoneScreen } from '@/components/layout/PhoneScreen';
 import { RoleSwitcher } from '@/components/layout/RoleSwitcher';
 import { Amount } from '@/components/ui/Amount';
 import { Button } from '@/components/ui/Button';
-import { CatMark } from '@/components/ui/CatMark';
 import { useApp } from '@/context/AppContext';
-import { acctById, ACCOUNTS, ACCT_KIND, catById, EXPENSE_CATS, INCOME_CATS, Transaction } from '@/lib/data';
+import { useData } from '@/context/DataContext';
+import { apiPost } from '@/lib/api';
+import { catDisplay } from '@/lib/catDisplay';
+import { ACCT_KIND } from '@/lib/data';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
+import type { CreateTransactionRequest } from '@/lib/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
@@ -30,67 +33,95 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function AcctCard({ label, acct, amount, highlight }: { label: string; acct: ReturnType<typeof acctById>; amount: number; highlight?: boolean }) {
-  const k = ACCT_KIND[acct.kind];
+function AcctCard({ label, name, currency, amount, highlight }: {
+  label: string; name: string; currency: string; amount: number; highlight?: boolean;
+}) {
   return (
     <div style={{ background: highlight ? T.transferSoft : T.surface, border: `1px solid ${highlight ? T.transfer + '40' : T.border}`, borderRadius: 12, padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ width: 38, height: 30, borderRadius: 4, background: k.color, color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{k.label}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 10, color: T.textMute, marginBottom: 1 }}>{label}</div>
-        <div style={{ fontSize: 13, color: T.ink, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {acct.name}
-          <span style={{ fontSize: 9, fontFamily: NUM_FONT, color: T.textMute, fontWeight: 600 }}>{acct.currency}</span>
-        </div>
-        <div style={{ fontSize: 10, color: T.textMute, marginTop: 2 }}>
-          余额 <Amount value={acct.balance ?? 0} size={10} weight={600} color={T.textSoft} currency={acct.currency} showCurrency={false} />
+        <div style={{ fontSize: 13, color: T.ink, fontWeight: 600 }}>
+          {name}
+          <span style={{ fontSize: 9, fontFamily: NUM_FONT, color: T.textMute, fontWeight: 600, marginLeft: 6 }}>{currency}</span>
         </div>
       </div>
       <div style={{ textAlign: 'right' }}>
-        <Amount value={amount} size={17} weight={600} currency={acct.currency} showCurrency={false} />
+        <Amount value={amount} size={17} weight={600} currency={currency as 'JPY' | 'CNY'} showCurrency={false} />
         <div style={{ fontSize: 10, color: T.transfer, marginTop: 2 }}>更改 ›</div>
       </div>
     </div>
   );
 }
 
+function CatChip({ name, selected, onSelect }: { name: string; selected: boolean; onSelect: () => void }) {
+  const { mark, tint } = catDisplay(name);
+  const accentColor = selected ? T.accent : 'transparent';
+  return (
+    <div onClick={onSelect} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 0', borderRadius: 8, background: selected ? T.surface : 'transparent', border: `1.5px solid ${selected ? T.accent : 'transparent'}`, cursor: 'pointer' }}>
+      <div style={{ width: 28, height: 28, borderRadius: 8, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, fontFamily: CN_FONT, color: T.ink }}>{mark}</div>
+      <span style={{ fontSize: 10, color: selected ? T.ink : T.textSoft, fontWeight: selected ? 600 : 400 }}>{name}</span>
+    </div>
+  );
+  void accentColor;
+}
+
+function PmChip({ name, type, selected, onSelect }: { name: string; type: string; selected: boolean; onSelect: () => void }) {
+  const k = ACCT_KIND[type as keyof typeof ACCT_KIND] ?? { color: '#ccc', label: '?' };
+  return (
+    <div onClick={onSelect} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 999, background: selected ? T.ink : T.surface, border: `1px solid ${selected ? T.ink : T.border}`, color: selected ? '#fff' : T.text, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+      <span style={{ width: 5, height: 5, borderRadius: 1, background: selected ? '#fff' : k.color }} />
+      {name}
+    </div>
+  );
+}
+
 function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
+  const data = useData();
   const router = useRouter();
   const isIncome = mode === 'income';
-  const cats = isIncome ? INCOME_CATS : EXPENSE_CATS;
   const accentColor = isIncome ? T.income : T.accent;
-  const quickCats = isIncome
-    ? ['salary', 'bonus', 'refund', 'reimburse']
-    : ['food', 'groceries', 'transport', 'daily', 'fun', 'cloth'];
-  const quickAccts = isIncome
-    ? ['bank_mufg', 'bank_smbc', 'paypay', 'cash_jpy']
-    : ['paypay', 'cash_jpy', 'cc_rakuten', 'cc_smbc'];
+
+  const cats = isIncome ? data.incomeCategories() : data.expenseCategories();
+  const pms = data.paymentMethods.filter((p) => p.isActive);
 
   const [amountStr, setAmountStr] = useState('');
   const [currency, setCurrency] = useState<'JPY' | 'CNY'>('JPY');
-  const [cat, setCat] = useState(isIncome ? 'salary' : 'groceries');
-  const [acct, setAcct] = useState(isIncome ? 'bank_mufg' : 'cc_rakuten');
+  const [catId, setCatId] = useState('');
+  const [pmId, setPmId] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Set defaults once data loads
+  const defaultCatId = catId || cats[0]?.id || '';
+  const defaultPmId = pmId || pms[0]?.id || '';
 
   const amount = currency === 'JPY' ? Math.round(parseFloat(amountStr) || 0) : parseFloat(amountStr) || 0;
+  const today = new Date().toISOString().slice(0, 10);
 
-  function handleSave() {
-    if (amount <= 0) return;
-    const tx: Transaction = {
-      id: `tx_${Date.now()}`,
-      date: '2026-05-19',
-      type: mode,
-      role: state.currentRole,
-      amount,
-      currency,
-      cat,
-      acct,
-      title: title || catById(cat).name,
-      note,
-    };
-    dispatch({ type: 'ADD_TRANSACTION', tx });
-    router.push('/transactions');
+  async function handleSave() {
+    if (amount <= 0 || saving) return;
+    setSaving(true);
+    try {
+      const req: CreateTransactionRequest = {
+        transactionType: mode,
+        transactionDate: today,
+        amount,
+        currency,
+        actorId: state.currentRole,
+        categoryId: defaultCatId || undefined,
+        paymentMethodId: defaultPmId || undefined,
+        title: title || cats.find((c) => c.id === defaultCatId)?.name || '',
+        memo: note,
+      };
+      await apiPost('/api/transactions', req);
+      router.push('/transactions');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleReset() {
@@ -101,7 +132,6 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
 
   return (
     <>
-      {/* Amount input area */}
       <div style={{ padding: '18px 0 20px', textAlign: 'center', borderBottom: `1px solid ${T.borderSoft}` }}>
         <div style={{ fontSize: 11, color: T.textMute, marginBottom: 8 }}>{isIncome ? '入账金额' : '支出金额'}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -122,7 +152,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
           {(['JPY', 'CNY'] as const).map((cc) => {
             const on = cc === currency;
             return (
-              <div key={cc} onClick={() => setCurrency(cc)} style={{ padding: '4px 14px', borderRadius: 6, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, fontSize: 11, fontWeight: 600, fontFamily: NUM_FONT, boxShadow: on ? '0 1px 2px rgba(0,0,0,0.04)' : 'none', cursor: 'pointer' }}>{cc}</div>
+              <div key={cc} onClick={() => setCurrency(cc)} style={{ padding: '4px 14px', borderRadius: 6, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, fontSize: 11, fontWeight: 600, fontFamily: NUM_FONT, cursor: 'pointer' }}>{cc}</div>
             );
           })}
         </div>
@@ -131,44 +161,28 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
       <Row label="角色"><RoleSwitcher /></Row>
 
       <Row label="日期">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink }}>
-          <span>2026-05-19 (周二)</span>
-          <span style={{ color: T.textDim, fontSize: 12 }}>›</span>
-        </div>
+        <div style={{ padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink }}>{today}</div>
       </Row>
 
-      <Row label={isIncome ? '入账分类' : '分类'}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(6, quickCats.length)}, 1fr)`, gap: 6 }}>
-          {quickCats.map((cid) => {
-            const c = catById(cid);
-            const on = cid === cat;
-            return (
-              <div key={cid} onClick={() => setCat(cid)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 0', borderRadius: 8, background: on ? T.surface : 'transparent', border: on ? `1.5px solid ${accentColor}` : '1px solid transparent', cursor: 'pointer' }}>
-                <CatMark cat={c} size={28} />
-                <span style={{ fontSize: 10, color: on ? T.ink : T.textSoft, fontWeight: on ? 600 : 400 }}>{c.name}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ marginTop: 6, fontSize: 11, color: T.textMute, textAlign: 'right' }}>更多分类 →</div>
-      </Row>
+      {cats.length > 0 && (
+        <Row label={isIncome ? '入账分类' : '分类'}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(5, cats.length)}, 1fr)`, gap: 6 }}>
+            {cats.slice(0, 10).map((c) => (
+              <CatChip key={c.id} name={c.name} selected={(catId || defaultCatId) === c.id} onSelect={() => setCatId(c.id)} />
+            ))}
+          </div>
+        </Row>
+      )}
 
-      <Row label={isIncome ? '入账账户' : '支付方式 / 账户'}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {quickAccts.map((aid) => {
-            const a = acctById(aid);
-            const on = aid === acct;
-            const k = ACCT_KIND[a.kind];
-            return (
-              <div key={aid} onClick={() => setAcct(aid)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 999, background: on ? T.ink : T.surface, border: `1px solid ${on ? T.ink : T.border}`, color: on ? '#fff' : T.text, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-                <span style={{ width: 5, height: 5, borderRadius: 1, background: on ? '#fff' : k.color }} />
-                {a.name}
-                {a.tail && <span style={{ opacity: 0.55, fontFamily: NUM_FONT, fontSize: 10 }}>·{a.tail}</span>}
-              </div>
-            );
-          })}
-        </div>
-      </Row>
+      {pms.length > 0 && (
+        <Row label={isIncome ? '入账账户' : '支付方式'}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {pms.map((pm) => (
+              <PmChip key={pm.id} name={pm.name} type={pm.type} selected={(pmId || defaultPmId) === pm.id} onSelect={() => setPmId(pm.id)} />
+            ))}
+          </div>
+        </Row>
+      )}
 
       <Row label={isIncome ? '来源 / 标题' : '店铺 / 标题'}>
         <input
@@ -192,68 +206,100 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
 
       <div style={{ padding: '10px 0 18px', borderTop: `1px solid ${T.borderSoft}`, display: 'flex', gap: 8, marginTop: 8 }}>
         <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={handleReset}>再记一笔</Button>
-        <Button variant={isIncome ? 'success' : 'primary'} size="lg" style={{ flex: 2 }} onClick={handleSave}>保存</Button>
+        <Button variant={isIncome ? 'success' : 'primary'} size="lg" style={{ flex: 2 }} onClick={handleSave} disabled={saving}>
+          {saving ? '保存中…' : '保存'}
+        </Button>
       </div>
     </>
   );
 }
 
 function TransferForm() {
-  const { dispatch } = useApp();
+  const data = useData();
   const router = useRouter();
-  const [fromAcctId, setFromAcctId] = useState('bank_mufg');
-  const [toAcctId, setToAcctId] = useState('bank_cn');
+
+  const accounts = data.accounts.filter((a) => a.isActive);
+  const [fromAcctId, setFromAcctId] = useState('');
+  const [toAcctId, setToAcctId] = useState('');
   const [fromAmount, setFromAmount] = useState('');
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const from = acctById(fromAcctId);
-  const to = acctById(toAcctId);
+  const defaultFrom = fromAcctId || accounts[0]?.id || '';
+  const defaultTo = toAcctId || accounts[1]?.id || '';
+  const fromAcct = data.account(defaultFrom);
+  const toAcct = data.account(defaultTo);
   const fromAmt = Math.round(parseFloat(fromAmount) || 0);
+  const today = new Date().toISOString().slice(0, 10);
 
-  function handleSave() {
-    if (fromAmt <= 0) return;
-    const tx: Transaction = {
-      id: `tx_${Date.now()}`,
-      date: '2026-05-19',
-      type: 'transfer',
-      fromAcct: fromAcctId,
-      toAcct: toAcctId,
-      fromAmount: fromAmt,
-      toAmount: fromAmt,
-      currency: 'JPY',
-      note,
-    };
-    dispatch({ type: 'ADD_TRANSACTION', tx });
-    router.push('/transactions');
+  async function handleSave() {
+    if (fromAmt <= 0 || saving) return;
+    setSaving(true);
+    try {
+      const req: CreateTransactionRequest = {
+        transactionType: 'transfer',
+        transactionDate: today,
+        amount: fromAmt,
+        currency: fromAcct?.currency ?? 'JPY',
+        fromAccountId: defaultFrom,
+        toAccountId: defaultTo,
+      };
+      await apiPost('/api/transactions', req);
+      router.push('/transactions');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <>
       <div style={{ padding: '14px 0' }}>
-        <AcctCard label="转出账户" acct={from} amount={fromAmt} />
+        <AcctCard label="转出账户" name={fromAcct?.name ?? '—'} currency={fromAcct?.currency ?? 'JPY'} amount={fromAmt} />
         <div style={{ textAlign: 'center', margin: '4px 0' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 15, background: T.surface, border: `1px solid ${T.border}`, color: T.transfer, fontSize: 14, fontWeight: 600 }}>↓</div>
         </div>
-        <AcctCard label="转入账户" acct={to} amount={fromAmt} highlight />
+        <AcctCard label="转入账户" name={toAcct?.name ?? '—'} currency={toAcct?.currency ?? 'JPY'} amount={fromAmt} highlight />
       </div>
+
+      {accounts.length > 1 && (
+        <Row label="转出账户">
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {accounts.map((a) => (
+              <div key={a.id} onClick={() => setFromAcctId(a.id)} style={{ padding: '6px 12px', borderRadius: 999, background: defaultFrom === a.id ? T.ink : T.surface, border: `1px solid ${defaultFrom === a.id ? T.ink : T.border}`, color: defaultFrom === a.id ? '#fff' : T.text, fontSize: 12, cursor: 'pointer' }}>
+                {a.name}
+              </div>
+            ))}
+          </div>
+        </Row>
+      )}
+
+      {accounts.length > 1 && (
+        <Row label="转入账户">
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {accounts.map((a) => (
+              <div key={a.id} onClick={() => setToAcctId(a.id)} style={{ padding: '6px 12px', borderRadius: 999, background: defaultTo === a.id ? T.transfer : T.surface, border: `1px solid ${defaultTo === a.id ? T.transfer : T.border}`, color: defaultTo === a.id ? '#fff' : T.text, fontSize: 12, cursor: 'pointer' }}>
+                {a.name}
+              </div>
+            ))}
+          </div>
+        </Row>
+      )}
 
       <Row label="转账金额">
         <input
-          type="number"
+          type="text"
           inputMode="decimal"
-          min="0"
           value={fromAmount}
-          onChange={(e) => setFromAmount(e.target.value)}
+          onChange={(e) => setFromAmount(e.target.value.replace(/[^\d.]/g, ''))}
           placeholder="0"
           style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 18, fontWeight: 600, color: T.ink, outline: 'none', boxSizing: 'border-box', fontFamily: NUM_FONT }}
         />
       </Row>
 
       <Row label="日期">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink }}>
-          <span>2026-05-19 (周二)</span>
-          <span style={{ color: T.textDim, fontSize: 12 }}>›</span>
-        </div>
+        <div style={{ padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink }}>{today}</div>
       </Row>
 
       <Row label="备注">
@@ -267,13 +313,14 @@ function TransferForm() {
       </Row>
 
       <div style={{ marginTop: 8, padding: 10, background: T.bgSubtle, borderRadius: 8, fontSize: 11, color: T.textSoft, lineHeight: 1.5 }}>
-        <strong style={{ color: T.ink }}>提示：</strong>
-        账户转换不计入本月支出 / 入账，不消耗预算，只调整账户余额。
+        <strong style={{ color: T.ink }}>提示：</strong>账户转换不计入本月支出 / 入账，不消耗预算，只调整账户余额。
       </div>
 
       <div style={{ padding: '10px 0 18px', display: 'flex', gap: 8, marginTop: 8 }}>
         <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={() => router.back()}>取消</Button>
-        <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave}>保存转账</Button>
+        <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave} disabled={saving}>
+          {saving ? '保存中…' : '保存转账'}
+        </Button>
       </div>
     </>
   );
@@ -283,7 +330,6 @@ function EntryContent() {
   const params = useSearchParams();
   const router = useRouter();
   const mode = (params.get('mode') as Mode) ?? 'expense';
-
   const title = mode === 'transfer' ? '账户转换' : mode === 'income' ? '入账' : '新增支出';
 
   return (
@@ -291,10 +337,7 @@ function EntryContent() {
       <AppBar
         title={title}
         left={
-          <div
-            onClick={() => router.back()}
-            style={{ fontSize: 20, color: T.textSoft, fontWeight: 300, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >×</div>
+          <div onClick={() => router.back()} style={{ fontSize: 20, color: T.textSoft, fontWeight: 300, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>×</div>
         }
         right={<div style={{ fontSize: 13, color: T.textMute, fontWeight: 500 }}>草稿</div>}
       />

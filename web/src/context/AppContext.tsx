@@ -17,7 +17,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type RoleId = 'me' | 'her' | 'family';
+export type RoleId = string; // real actor UUID or legacy mock 'me'|'her'|'family'
 
 export interface Candidate {
   id: string;
@@ -39,7 +39,7 @@ export interface Candidate {
 }
 
 export interface AppState {
-  currentRole: RoleId;
+  currentRole: string; // real actor UUID once DataContext loads
   transactions: Transaction[];
   accounts: Account[];
   budgets: Budget[];

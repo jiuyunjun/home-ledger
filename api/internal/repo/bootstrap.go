@@ -11,14 +11,16 @@ import (
 
 // BootstrapResult is returned after creating a new household with default data.
 type BootstrapResult struct {
-	Household     *domain.Household
-	SelfActor     *domain.Actor
-	PartnerActor  *domain.Actor
-	SharedActor   *domain.Actor
+	Household      *domain.Household
+	SelfActor      *domain.Actor
+	PartnerActor   *domain.Actor
+	SharedActor    *domain.Actor
+	Accounts       []*domain.Account
+	PaymentMethods []*domain.PaymentMethod
 }
 
 // BootstrapHousehold creates a household, 3 default actors, default categories,
-// and a user record for the caller. Called on first login.
+// default accounts, default payment methods, and a user record for the caller.
 func BootstrapHousehold(ctx context.Context, uid, email, householdName string) (*BootstrapResult, error) {
 	now := time.Now().UTC()
 	householdID := uuid.NewString()
@@ -67,6 +69,11 @@ func BootstrapHousehold(ctx context.Context, uid, email, householdName string) (
 		return nil, fmt.Errorf("seed categories: %w", err)
 	}
 
+	accounts, paymentMethods, err := seedAccountsAndPaymentMethods(ctx, householdID, selfActor.ID, now)
+	if err != nil {
+		return nil, fmt.Errorf("seed accounts: %w", err)
+	}
+
 	userRecord := &domain.UserRecord{
 		UID:         uid,
 		HouseholdID: householdID,
@@ -79,10 +86,12 @@ func BootstrapHousehold(ctx context.Context, uid, email, householdName string) (
 	}
 
 	return &BootstrapResult{
-		Household:    household,
-		SelfActor:    selfActor,
-		PartnerActor: partnerActor,
-		SharedActor:  sharedActor,
+		Household:      household,
+		SelfActor:      selfActor,
+		PartnerActor:   partnerActor,
+		SharedActor:    sharedActor,
+		Accounts:       accounts,
+		PaymentMethods: paymentMethods,
 	}, nil
 }
 
@@ -128,4 +137,59 @@ func seedCategories(ctx context.Context, householdID string, now time.Time) erro
 		}
 	}
 	return nil
+}
+
+type seedAcct struct {
+	name     string
+	acctType domain.AccountType
+	currency domain.Currency
+}
+
+var defaultAccounts = []seedAcct{
+	{"現金", domain.AccountCash, domain.CurrencyJPY},
+	{"PayPay", domain.AccountPayPay, domain.CurrencyJPY},
+	{"銀行口座", domain.AccountBankAccount, domain.CurrencyJPY},
+	{"人民币账户", domain.AccountCNYRMB, domain.CurrencyCNY},
+}
+
+func seedAccountsAndPaymentMethods(ctx context.Context, householdID, ownerActorID string, now time.Time) ([]*domain.Account, []*domain.PaymentMethod, error) {
+	accounts := make([]*domain.Account, 0, len(defaultAccounts))
+	for i, sa := range defaultAccounts {
+		a := &domain.Account{
+			ID:           uuid.NewString(),
+			HouseholdID:  householdID,
+			Name:         sa.name,
+			Type:         sa.acctType,
+			Currency:     sa.currency,
+			OwnerActorID: ownerActorID,
+			IsActive:     true,
+			CreatedAt:    now.Add(time.Duration(i) * time.Millisecond),
+			UpdatedAt:    now.Add(time.Duration(i) * time.Millisecond),
+		}
+		if err := CreateAccount(ctx, a); err != nil {
+			return nil, nil, err
+		}
+		accounts = append(accounts, a)
+	}
+
+	// Create payment methods for non-CNY accounts (cash, PayPay, bank).
+	pms := make([]*domain.PaymentMethod, 0, 3)
+	for i, a := range accounts[:3] {
+		pm := &domain.PaymentMethod{
+			ID:           uuid.NewString(),
+			HouseholdID:  householdID,
+			Name:         a.Name,
+			Type:         a.Type,
+			AccountID:    a.ID,
+			OwnerActorID: ownerActorID,
+			IsActive:     true,
+			CreatedAt:    now.Add(time.Duration(i) * time.Millisecond),
+			UpdatedAt:    now.Add(time.Duration(i) * time.Millisecond),
+		}
+		if err := CreatePaymentMethod(ctx, pm); err != nil {
+			return nil, nil, err
+		}
+		pms = append(pms, pm)
+	}
+	return accounts, pms, nil
 }

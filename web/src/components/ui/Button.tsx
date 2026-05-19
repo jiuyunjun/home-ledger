@@ -12,6 +12,7 @@ interface Props {
   full?: boolean;
   style?: CSSProperties;
   onClick?: () => void;
+  disabled?: boolean;
 }
 
 const VARIANTS: Record<Variant, CSSProperties> = {
@@ -28,11 +29,13 @@ const SIZES: Record<Size, CSSProperties> = {
   lg: { padding: '12px 18px', fontSize: 15, height: 48, borderRadius: 12 },
 };
 
-export function Button({ children, variant = 'primary', size = 'md', icon, full, style = {}, onClick }: Props) {
+export function Button({ children, variant = 'primary', size = 'md', icon, full, style = {}, onClick, disabled }: Props) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
+        opacity: disabled ? 0.55 : 1,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
