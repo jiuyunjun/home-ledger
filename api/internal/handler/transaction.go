@@ -159,6 +159,7 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TransactionDate *string `json:"transactionDate"`
 		Title           *string `json:"title"`
+		MerchantName    *string `json:"merchantName"`
 		Memo            *string `json:"memo"`
 		CategoryID      *string `json:"categoryId"`
 	}
@@ -173,6 +174,9 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Title != nil {
 		updates["title"] = *req.Title
+	}
+	if req.MerchantName != nil {
+		updates["merchantName"] = *req.MerchantName
 	}
 	if req.Memo != nil {
 		updates["memo"] = *req.Memo

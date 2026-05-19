@@ -30,7 +30,7 @@ function fmtDay(dateStr: string) {
 }
 
 function Backdrop({ onClose }: { onClose: () => void }) {
-  return <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(0,0,0,0.32)' }} />;
+  return <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 98, background: 'rgba(0,0,0,0.32)' }} />;
 }
 
 function CategoryPicker({ currentId, onSelect, onClose }: {
@@ -41,7 +41,7 @@ function CategoryPicker({ currentId, onSelect, onClose }: {
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>选择分类</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
           {cats.map((cat) => {
@@ -69,6 +69,7 @@ function EditSheet({ tx, onSave, onClose }: {
 }) {
   const data = useData();
   const [title, setTitle] = useState(tx.title ?? '');
+  const [merchantName, setMerchantName] = useState(tx.merchantName ?? '');
   const [date, setDate] = useState(tx.transactionDate);
   const [memo, setMemo] = useState(tx.memo ?? '');
   const [categoryId, setCategoryId] = useState(tx.categoryId ?? '');
@@ -82,6 +83,7 @@ function EditSheet({ tx, onSave, onClose }: {
     setSaving(true);
     const patch: Record<string, string> = {};
     if (title !== (tx.title ?? '')) patch.title = title;
+    if (merchantName !== (tx.merchantName ?? '')) patch.merchantName = merchantName;
     if (date !== tx.transactionDate) patch.transactionDate = date;
     if (memo !== (tx.memo ?? '')) patch.memo = memo;
     if (categoryId !== (tx.categoryId ?? '')) patch.categoryId = categoryId;
@@ -98,11 +100,17 @@ function EditSheet({ tx, onSave, onClose }: {
         <CategoryPicker currentId={categoryId} onSelect={setCategoryId} onClose={() => setShowCatPicker(false)} />
       )}
       <Backdrop onClose={onClose} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 97, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 97, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 18 }}>编辑记录</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>名称</label>
+            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>店铺名称</label>
+            <input value={merchantName} onChange={e => setMerchantName(e.target.value)}
+              placeholder="店铺 / 来源（可选）"
+              style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>品目名称</label>
             <input value={title} onChange={e => setTitle(e.target.value)}
               placeholder="可为空（使用分类名）"
               style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
@@ -238,6 +246,9 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: T.textMute }}>
             {isIncome && <span style={{ background: T.incomeSoft, color: T.income, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>入账</span>}
+            {tx.merchantName && tx.merchantName !== tx.title && (
+              <span style={{ color: T.textSoft, fontWeight: 500 }}>{tx.merchantName}</span>
+            )}
             {actor && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ width: 5, height: 5, borderRadius: 3, background: actorColors[actor.id] }} />

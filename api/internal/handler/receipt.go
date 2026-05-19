@@ -219,6 +219,7 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 				SuggestedCurrency:        currency,
 				SuggestedCategoryID:      catByName[it.catName],
 				SuggestedPaymentMethodID: extracted.SuggestedPaymentMethodID,
+				StoreName:                extracted.MerchantName,
 				MerchantName:             it.name,
 				AIUserNote:               receipt.AIUserNote,
 				Confidence:               extracted.Confidence,

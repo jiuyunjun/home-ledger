@@ -29,6 +29,7 @@ interface Candidate {
   suggestedCurrency: string;
   suggestedCategoryId: string;
   suggestedPaymentMethodId?: string;
+  storeName: string;
   merchantName: string;
   aiUserNote: string;
   confidence: number;
@@ -244,7 +245,7 @@ function ItemConfRow({ candidate, edit, rejected, first, onEditName, onEditAmoun
 // ─── Receipt group ────────────────────────────────────────────────────────────
 
 function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup }: {
-  group: { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] };
+  group: { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; storeName: string; items: Candidate[] };
   itemEdits: Record<string, ItemEdit>;
   receiptEdit: ReceiptEdit;
   rejected: Set<string>;
@@ -300,6 +301,7 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onR
             <ConfBadge v={avgConf} />
           </div>
           <div style={{ fontSize: 12, color: T.textMute, marginBottom: 5 }}>
+            {group.storeName && <span style={{ color: T.ink, fontWeight: 600 }}>{group.storeName} · </span>}
             {date} · 共 {activeItems.length} 项
           </div>
           <Amount value={total} size={20} weight={600} color={T.ink} currency={currency} />
@@ -465,11 +467,11 @@ export default function AIConfirmPage() {
 
   // Build receipt groups — key by subReceiptId (one physical receipt within a photo)
   // falling back to receiptId for candidates created before multi-receipt support.
-  const groupMap = new Map<string, { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; items: Candidate[] }>();
+  const groupMap = new Map<string, { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; storeName: string; items: Candidate[] }>();
   for (const c of candidates) {
     const key = c.subReceiptId ?? c.receiptId;
     if (!groupMap.has(key)) {
-      groupMap.set(key, { key, receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: c.suggestedPaymentMethodId ?? '', items: [] });
+      groupMap.set(key, { key, receiptId: c.receiptId, date: c.suggestedTransactionDate, type: c.suggestedTransactionType, currency: c.suggestedCurrency, actorId: c.suggestedActorId, hint: c.aiUserNote, paymentMethodId: c.suggestedPaymentMethodId ?? '', storeName: c.storeName ?? '', items: [] });
     }
     groupMap.get(key)!.items.push(c);
   }

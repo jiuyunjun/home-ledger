@@ -56,6 +56,7 @@ func patchCandidate(w http.ResponseWriter, r *http.Request) {
 		SuggestedCategoryID      *string `json:"suggestedCategoryId"`
 		SuggestedActorID         *string `json:"suggestedActorId"`
 		SuggestedPaymentMethodID *string `json:"suggestedPaymentMethodId"`
+		StoreName                *string `json:"storeName"`
 		MerchantName             *string `json:"merchantName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -74,6 +75,7 @@ func patchCandidate(w http.ResponseWriter, r *http.Request) {
 	if req.SuggestedCategoryID != nil      { updates["suggestedCategoryId"]         = *req.SuggestedCategoryID }
 	if req.SuggestedActorID != nil         { updates["suggestedActorId"]            = *req.SuggestedActorID }
 	if req.SuggestedPaymentMethodID != nil { updates["suggestedPaymentMethodId"]    = *req.SuggestedPaymentMethodID }
+	if req.StoreName != nil                { updates["storeName"]                   = *req.StoreName }
 	if req.MerchantName != nil             { updates["merchantName"]                = *req.MerchantName }
 
 	if err := repo.UpdateCandidate(r.Context(), id, updates); err != nil {
@@ -118,7 +120,7 @@ func confirmCandidate(w http.ResponseWriter, r *http.Request) {
 		Currency:        c.SuggestedCurrency,
 		CategoryID:      c.SuggestedCategoryID,
 		PaymentMethodID: c.SuggestedPaymentMethodID,
-		MerchantName:    c.MerchantName,
+		MerchantName:    c.StoreName,
 		Title:           c.MerchantName,
 		Source:          domain.SourceAIReceipt,
 		ReceiptID:       c.ReceiptID,

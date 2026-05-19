@@ -220,6 +220,7 @@ type TransactionCandidate struct {
 	SuggestedPaymentMethodID string              `json:"suggestedPaymentMethodId,omitempty" firestore:"suggestedPaymentMethodId,omitempty"`
 	SuggestedFromAccountID  string               `json:"suggestedFromAccountId,omitempty" firestore:"suggestedFromAccountId,omitempty"`
 	SuggestedToAccountID    string               `json:"suggestedToAccountId,omitempty" firestore:"suggestedToAccountId,omitempty"`
+	StoreName               string               `json:"storeName,omitempty" firestore:"storeName,omitempty"`
 	MerchantName            string               `json:"merchantName,omitempty" firestore:"merchantName,omitempty"`
 	AIUserNote              string               `json:"aiUserNote,omitempty" firestore:"aiUserNote,omitempty"`
 	Confidence              float64              `json:"confidence" firestore:"confidence"`
