@@ -1,0 +1,16 @@
+[
+  { "id": "t01", "date": "2026-05-18", "type": "expense",  "role": "me",     "amount": 780,    "currency": "JPY", "cat": "food",      "acct": "paypay",     "title": "すき家 牛丼",      "note": "午饭" },
+  { "id": "t02", "date": "2026-05-18", "type": "expense",  "role": "family", "amount": 3240,   "currency": "JPY", "cat": "groceries", "acct": "cc_rakuten", "title": "OK ストア",        "note": "本周食材" },
+  { "id": "t03", "date": "2026-05-18", "type": "expense",  "role": "her",    "amount": 1680,   "currency": "JPY", "cat": "fun",       "acct": "paypay",     "title": "スターバックス",   "note": "" },
+  { "id": "t04", "date": "2026-05-18", "type": "income",   "role": "her",    "amount": 4500,   "currency": "JPY", "cat": "reimburse", "acct": "bank_mufg",  "title": "公司报销 4 月差旅", "note": "" },
+  { "id": "t05", "date": "2026-05-17", "type": "transfer", "fromAcct": "bank_mufg", "toAcct": "bank_cn", "fromAmount": 100000, "toAmount": 4820.55, "currency": "JPY", "rate": 0.04821, "note": "汇款回国" },
+  { "id": "t06", "date": "2026-05-17", "type": "expense",  "role": "me",     "amount": 320,    "currency": "JPY", "cat": "transport", "acct": "paypay",     "title": "JR 中央線",        "note": "" },
+  { "id": "t07", "date": "2026-05-17", "type": "expense",  "role": "family", "amount": 12800,  "currency": "JPY", "cat": "utility",   "acct": "cc_smbc",    "title": "東京電力",         "note": "5月電気代" },
+  { "id": "t08", "date": "2026-05-16", "type": "expense",  "role": "her",    "amount": 4980,   "currency": "JPY", "cat": "cloth",     "acct": "cc_rakuten", "title": "ユニクロ",         "note": "夏装" },
+  { "id": "t09", "date": "2026-05-16", "type": "expense",  "role": "me",     "amount": 65.80,  "currency": "CNY", "cat": "food",      "acct": "alipay",     "title": "回国吃 兰州拉面",  "note": "出差" },
+  { "id": "t10", "date": "2026-05-15", "type": "income",   "role": "me",     "amount": 285000, "currency": "JPY", "cat": "salary",    "acct": "bank_mufg",  "title": "5月 給与",         "note": "" },
+  { "id": "t11", "date": "2026-05-15", "type": "expense",  "role": "family", "amount": 95000,  "currency": "JPY", "cat": "rent",      "acct": "cc_smbc",    "title": "5月家賃",          "note": "自动扣款" },
+  { "id": "t12", "date": "2026-05-14", "type": "transfer", "fromAcct": "bank_mufg", "toAcct": "cc_smbc", "fromAmount": 128400, "toAmount": 128400, "currency": "JPY", "note": "5月 信用卡还款" },
+  { "id": "t13", "date": "2026-05-14", "type": "expense",  "role": "me",     "amount": 620,    "currency": "JPY", "cat": "daily",     "acct": "paypay",     "title": "マツモトキヨシ",   "note": "牙膏 洗发水" },
+  { "id": "t14", "date": "2026-05-13", "type": "income",   "role": "family", "amount": 800,    "currency": "JPY", "cat": "refund",    "acct": "paypay",     "title": "Amazon 退款",       "note": "" }
+]

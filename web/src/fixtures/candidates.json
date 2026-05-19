@@ -1,0 +1,31 @@
+[
+  {
+    "id": "d1",
+    "receiptImage": "receipt-1",
+    "status": "draft",
+    "confidence": 0.92,
+    "userHint": "本周食材采购，统一算共通账",
+    "fields": {
+      "type":     { "value": "expense",            "conf": 0.99 },
+      "date":     { "value": "2026-05-18",          "conf": 0.98 },
+      "currency": { "value": "JPY",                "conf": 0.99 },
+      "cat":      { "value": "groceries",           "conf": 0.81 },
+      "acct":     { "value": "cc_rakuten",          "conf": 0.62, "warn": true },
+      "role":     { "value": "family",              "conf": 0.88 },
+      "title":    { "value": "OK ストア 西新宿店",  "conf": 0.94 },
+      "note":     { "value": "本周食材",            "conf": 0.85 }
+    },
+    "items": [
+      { "id": "i1",  "name": "玉ねぎ 3個",        "price": 198,  "cat": "groceries", "conf": 0.95, "include": true },
+      { "id": "i2",  "name": "鶏もも肉 500g",     "price": 580,  "cat": "groceries", "conf": 0.97, "include": true },
+      { "id": "i3",  "name": "牛乳 1L",           "price": 268,  "cat": "groceries", "conf": 0.96, "include": true },
+      { "id": "i4",  "name": "卵 10個",           "price": 248,  "cat": "groceries", "conf": 0.94, "include": true },
+      { "id": "i5",  "name": "食パン",            "price": 158,  "cat": "groceries", "conf": 0.92, "include": true },
+      { "id": "i6",  "name": "トマト 4個",        "price": 398,  "cat": "groceries", "conf": 0.93, "include": true },
+      { "id": "i7",  "name": "お米 5kg",          "price": 1890, "cat": "groceries", "conf": 0.91, "include": true },
+      { "id": "i8",  "name": "台所用洗剤",        "price": 298,  "cat": "daily",     "conf": 0.74, "include": true, "warn": true },
+      { "id": "i9",  "name": "コカ・コーラ 1.5L", "price": 198,  "cat": "groceries", "conf": 0.58, "include": true, "warn": true },
+      { "id": "i10", "name": "— 値引 —",          "price": -500, "cat": "groceries", "conf": 0.99, "include": true, "isAdjust": true }
+    ]
+  }
+]

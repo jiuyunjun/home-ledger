@@ -1,0 +1,10 @@
+[
+  { "id": "b1", "cat": "food",      "role": "all",    "limit": 15000, "used": 9650,  "threshold": 0.8,  "currency": "JPY", "enabled": true },
+  { "id": "b2", "cat": "groceries", "role": "family", "limit": 25000, "used": 18420, "threshold": 0.8,  "currency": "JPY", "enabled": true },
+  { "id": "b3", "cat": "fun",       "role": "all",    "limit": 10000, "used": 10080, "threshold": 0.8,  "currency": "JPY", "enabled": true },
+  { "id": "b4", "cat": "cloth",     "role": "her",    "limit": 8000,  "used": 4980,  "threshold": 0.8,  "currency": "JPY", "enabled": true },
+  { "id": "b5", "cat": "transport", "role": "me",     "limit": 4000,  "used": 2940,  "threshold": 0.85, "currency": "JPY", "enabled": true },
+  { "id": "b6", "cat": "daily",     "role": "family", "limit": 3000,  "used": 1620,  "threshold": 0.8,  "currency": "JPY", "enabled": true },
+  { "id": "b7", "cat": "utility",   "role": "family", "limit": 14000, "used": 12800, "threshold": 0.85, "currency": "JPY", "enabled": true },
+  { "id": "b8", "cat": "travel",    "role": "all",    "limit": 30000, "used": 0,     "threshold": 0.8,  "currency": "JPY", "enabled": false }
+]

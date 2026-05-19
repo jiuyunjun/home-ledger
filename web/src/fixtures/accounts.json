@@ -1,0 +1,11 @@
+[
+  { "id": "cash_jpy",   "name": "現金",          "kind": "cash",   "currency": "JPY", "balance": 28500 },
+  { "id": "paypay",     "name": "PayPay",        "kind": "wallet", "currency": "JPY", "balance": 12340 },
+  { "id": "cc_rakuten", "name": "楽天カード",     "kind": "card",   "currency": "JPY", "tail": "4421", "debt": 42800 },
+  { "id": "cc_smbc",    "name": "三井住友 VISA",  "kind": "card",   "currency": "JPY", "tail": "7702", "debt": 128400 },
+  { "id": "cc_amex",    "name": "AMEX Gold",     "kind": "card",   "currency": "JPY", "tail": "1009", "debt": 18900 },
+  { "id": "bank_mufg",  "name": "三菱UFJ 普通",   "kind": "bank",   "currency": "JPY", "balance": 1284500 },
+  { "id": "bank_smbc",  "name": "三井住友 普通",  "kind": "bank",   "currency": "JPY", "balance": 320000 },
+  { "id": "bank_cn",    "name": "招商银行储蓄",   "kind": "bank",   "currency": "CNY", "balance": 18420.55 },
+  { "id": "alipay",     "name": "支付宝",         "kind": "wallet", "currency": "CNY", "balance": 1234.50 }
+]

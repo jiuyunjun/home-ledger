@@ -1,0 +1,9 @@
+[
+  { "id": "f1", "type": "expense", "name": "房租",          "amount": 95000,  "currency": "JPY", "role": "family", "cat": "rent",    "acct": "cc_smbc",    "day": 27, "start": "2024-04-01", "enabled": true,  "next": "2026-05-27" },
+  { "id": "f2", "type": "income",  "name": "5月 給与",      "amount": 285000, "currency": "JPY", "role": "me",     "cat": "salary",  "acct": "bank_mufg",  "day": 25, "start": "2023-08-25", "enabled": true,  "next": "2026-05-25" },
+  { "id": "f3", "type": "expense", "name": "東京電力",      "amount": 11800,  "currency": "JPY", "role": "family", "cat": "utility", "acct": "cc_smbc",    "day": 28, "start": "2024-04-01", "enabled": true,  "next": "2026-05-28" },
+  { "id": "f4", "type": "expense", "name": "楽天モバイル",  "amount": 2980,   "currency": "JPY", "role": "me",     "cat": "utility", "acct": "cc_rakuten", "day": 15, "start": "2024-08-15", "enabled": true,  "next": "2026-06-15" },
+  { "id": "f5", "type": "expense", "name": "Netflix",       "amount": 1590,   "currency": "JPY", "role": "family", "cat": "fun",     "acct": "cc_amex",    "day": 3,  "start": "2025-02-03", "enabled": true,  "next": "2026-06-03" },
+  { "id": "f6", "type": "income",  "name": "她 アルバイト", "amount": 78000,  "currency": "JPY", "role": "her",    "cat": "salary",  "acct": "bank_mufg",  "day": 20, "start": "2025-01-20", "enabled": true,  "next": "2026-05-20" },
+  { "id": "f7", "type": "expense", "name": "健康保険",      "amount": 18500,  "currency": "JPY", "role": "her",    "cat": "medical", "acct": "cc_rakuten", "day": 10, "start": "2025-04-10", "enabled": false, "next": "—" }
+]
