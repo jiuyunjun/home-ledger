@@ -157,6 +157,31 @@ func patchBudget(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
+func deleteBudget(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+
+	id := chi.URLParam(r, "budgetId")
+	b, err := repo.GetBudget(r.Context(), id)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if b == nil || b.HouseholdID != claims.HouseholdID {
+		writeAppError(w, domain.NewNotFoundError("budget"))
+		return
+	}
+
+	if err := repo.DeleteBudget(r.Context(), id); err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func getBudgetUsage(w http.ResponseWriter, r *http.Request) {
 	claims, ok := domain.ClaimsFromCtx(r.Context())
 	if !ok {

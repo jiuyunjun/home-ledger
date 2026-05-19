@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { useData } from '@/context/DataContext';
-import { apiGet, apiPatch, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import type { BudgetUsageItem, MonthlyBudget } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
@@ -170,6 +170,7 @@ function EditBudgetSheet({ budget, onClose, onSaved }: {
   const [threshold, setThreshold] = useState(String(budget.alertThresholdPercent));
   const [active, setActive] = useState(budget.isActive);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -183,6 +184,18 @@ function EditBudgetSheet({ budget, onClose, onSaved }: {
       onClose();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('删除此预算？')) return;
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/budgets/${budget.id}`);
+      onSaved();
+      onClose();
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -206,8 +219,11 @@ function EditBudgetSheet({ budget, onClose, onSaved }: {
             <div style={{ position: 'absolute', top: 2, left: active ? 18 : 2, width: 16, height: 16, borderRadius: 8, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s' }} />
           </div>
         </div>
-        <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving}>
+        <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving || deleting}>
           {saving ? '保存中…' : '保存'}
+        </Button>
+        <Button variant="danger" size="md" style={{ width: '100%' }} onClick={handleDelete} disabled={saving || deleting}>
+          {deleting ? '删除中…' : '删除此预算'}
         </Button>
       </div>
     </Sheet>

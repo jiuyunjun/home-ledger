@@ -58,3 +58,8 @@ func UpdateBudget(ctx context.Context, id string, updates map[string]any) error 
 	_, err := fs(ctx).Collection("monthlyBudgets").Doc(id).Set(ctx, updates, firestore.MergeAll)
 	return err
 }
+
+func DeleteBudget(ctx context.Context, id string) error {
+	_, err := fs(ctx).Collection("monthlyBudgets").Doc(id).Delete(ctx)
+	return err
+}

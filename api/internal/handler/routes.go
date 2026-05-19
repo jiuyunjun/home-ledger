@@ -76,6 +76,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Get("/budgets", listBudgets)
 		r.Post("/budgets", createBudget)
 		r.Patch("/budgets/{budgetId}", patchBudget)
+		r.Delete("/budgets/{budgetId}", deleteBudget)
 		r.Get("/budgets/usage", getBudgetUsage)
 
 		// Scheduled jobs (Milestone 10)
