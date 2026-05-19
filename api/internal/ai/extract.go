@@ -22,18 +22,26 @@ type LineItem struct {
 
 // ExtractedReceipt holds the fields parsed from one receipt in an image.
 type ExtractedReceipt struct {
-	MerchantName    string     `json:"merchantName"`
-	TransactionDate string     `json:"transactionDate"` // YYYY-MM-DD
-	Currency        string     `json:"currency"`        // JPY | CNY
-	TotalAmount     int64      `json:"totalAmount"`     // minor units
-	PaymentHint     string     `json:"paymentHint"`     // cash|paypay|credit_card|unknown
-	Confidence      float64    `json:"confidence"`      // 0–1
-	LineItems       []LineItem `json:"lineItems"`
+	MerchantName             string     `json:"merchantName"`
+	TransactionDate          string     `json:"transactionDate"`          // YYYY-MM-DD
+	Currency                 string     `json:"currency"`                 // JPY | CNY
+	TotalAmount              int64      `json:"totalAmount"`              // minor units
+	PaymentHint              string     `json:"paymentHint"`              // cash|paypay|credit_card|unknown
+	SuggestedPaymentMethodID string     `json:"suggestedPaymentMethodId"` // matched from provided list
+	Confidence               float64    `json:"confidence"`               // 0–1
+	LineItems                []LineItem `json:"lineItems"`
 }
 
 // ExtractionResult wraps one or more receipts found in the image.
 type ExtractionResult struct {
 	Receipts []ExtractedReceipt `json:"receipts"`
+}
+
+// PaymentMethodHint is passed to ExtractFromImage so the AI can match payment methods.
+type PaymentMethodHint struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"` // cash|paypay|credit_card|bank_account|other
 }
 
 const systemPrompt = `You are a receipt parser for a private household accounting app used in Japan.
@@ -51,6 +59,7 @@ Return ONLY this JSON object — no markdown, no explanation:
       "currency": "JPY",
       "totalAmount": <integer, minor units>,
       "paymentHint": "cash|paypay|credit_card|unknown",
+      "suggestedPaymentMethodId": <id string from the provided payment method list, or "" if unknown>,
       "confidence": <0.0-1.0>,
       "lineItems": [
         { "name": <string>, "amount": <integer, minor units>, "categoryName": <string> }
@@ -80,11 +89,14 @@ Rules (apply independently to each receipt):
   clothing/electronics/games→购物; electricity/gas/water bill→水电网.
 - transactionDate: use the date printed on the receipt. If unclear, use today.
 - paymentHint: Suica/PayPay→paypay; VISA/Master→credit_card; 現金→cash; else unknown.
+- suggestedPaymentMethodId: match the payment method used on the receipt to the provided list.
+  Use the "id" of the best match. If no list is provided or nothing matches, use "".
 - confidence: 1.0=all fields clearly visible; 0.5=partially legible; 0.2=mostly guessing.`
 
 // ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision and returns
 // all receipts found in the image. userNote is optional guidance.
-func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote string) (*ExtractionResult, string, error) {
+// paymentMethods is the household's active payment method list for AI matching.
+func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote string, paymentMethods []PaymentMethodHint) (*ExtractionResult, string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return nil, "", fmt.Errorf("OPENAI_API_KEY not set")
@@ -102,6 +114,13 @@ func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote 
 			"type": "text",
 			"text": systemPrompt,
 		},
+	}
+	if len(paymentMethods) > 0 {
+		pmJSON, _ := json.Marshal(paymentMethods)
+		userContent = append(userContent, map[string]any{
+			"type": "text",
+			"text": "Available payment methods for this household (match suggestedPaymentMethodId from this list):\n" + string(pmJSON),
+		})
 	}
 	if userNote != "" {
 		userContent = append(userContent, map[string]any{

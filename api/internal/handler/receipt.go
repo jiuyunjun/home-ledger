@@ -130,8 +130,21 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build payment method hint list for AI matching.
+	pms, _ := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
+	pmHints := make([]ai.PaymentMethodHint, 0, len(pms))
+	for _, pm := range pms {
+		if pm.IsActive {
+			pmHints = append(pmHints, ai.PaymentMethodHint{
+				ID:   pm.ID,
+				Name: pm.Name,
+				Type: string(pm.Type),
+			})
+		}
+	}
+
 	// Call OpenAI.
-	extracted, rawJSON, err := ai.ExtractFromImage(r.Context(), imageData, receipt.MIMEType, receipt.AIUserNote)
+	extracted, rawJSON, err := ai.ExtractFromImage(r.Context(), imageData, receipt.MIMEType, receipt.AIUserNote, pmHints)
 
 	now := time.Now().UTC()
 	if err != nil {
@@ -195,23 +208,24 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 
 		for _, it := range items {
 			c := &domain.TransactionCandidate{
-				ID:                  uuid.NewString(),
-				ReceiptID:           receiptID,
-				SubReceiptID:        subReceiptID,
-				HouseholdID:         claims.HouseholdID,
-				SuggestedActorID:    claims.ActorID,
-				SuggestedType:       domain.TxExpense,
-				SuggestedDate:       txDate,
-				SuggestedAmount:     it.amount,
-				SuggestedCurrency:   currency,
-				SuggestedCategoryID: catByName[it.catName],
-				MerchantName:        it.name,
-				AIUserNote:          receipt.AIUserNote,
-				Confidence:          extracted.Confidence,
-				Warnings:            []domain.CandidateWarning{},
-				Status:              domain.CandidateDraft,
-				CreatedAt:           now,
-				UpdatedAt:           now,
+				ID:                       uuid.NewString(),
+				ReceiptID:                receiptID,
+				SubReceiptID:             subReceiptID,
+				HouseholdID:              claims.HouseholdID,
+				SuggestedActorID:         claims.ActorID,
+				SuggestedType:            domain.TxExpense,
+				SuggestedDate:            txDate,
+				SuggestedAmount:          it.amount,
+				SuggestedCurrency:        currency,
+				SuggestedCategoryID:      catByName[it.catName],
+				SuggestedPaymentMethodID: extracted.SuggestedPaymentMethodID,
+				MerchantName:             it.name,
+				AIUserNote:               receipt.AIUserNote,
+				Confidence:               extracted.Confidence,
+				Warnings:                 []domain.CandidateWarning{},
+				Status:                   domain.CandidateDraft,
+				CreatedAt:                now,
+				UpdatedAt:                now,
 			}
 			if err := repo.CreateCandidate(r.Context(), c); err != nil {
 				writeAppError(w, domain.NewInternalError(err))
