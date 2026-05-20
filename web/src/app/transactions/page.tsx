@@ -26,7 +26,15 @@ interface PendingRule {
   isActive: boolean;
 }
 
-function PendingRuleRow({ rule }: { rule: PendingRule }) {
+function PendingRuleRow({ rule, expanded, executing, onTap, onExecute, onCancel, onConfirmExecute }: {
+  rule: PendingRule;
+  expanded: boolean;
+  executing: boolean;
+  onTap: () => void;
+  onExecute: () => void;
+  onCancel: () => void;
+  onConfirmExecute: () => void;
+}) {
   const data = useData();
   const cat = data.category(rule.categoryId ?? '');
   const pm = data.paymentMethod(rule.paymentMethodId ?? '');
@@ -34,18 +42,42 @@ function PendingRuleRow({ rule }: { rule: PendingRule }) {
   const isIncome = rule.transactionType === 'income';
   const dayNum = rule.dayOfMonth;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px' }}>
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, fontFamily: CN_FONT, flexShrink: 0, color: T.ink, border: `1.5px dashed ${T.border}` }}>{mark}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rule.title}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: T.textMute }}>
-          <span style={{ background: T.bgSubtle, color: T.textSoft, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>待执行</span>
-          {pm && <span style={{ fontFamily: NUM_FONT }}>{pm.name}</span>}
-          <span style={{ color: T.textDim }}>·</span>
-          <span>{dayNum} 日执行</span>
+    <div>
+      <div onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, fontFamily: CN_FONT, flexShrink: 0, color: T.ink, border: `1.5px dashed ${T.border}` }}>{mark}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rule.title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: T.textMute }}>
+            <span style={{ background: T.bgSubtle, color: T.textSoft, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>待执行</span>
+            {pm && <span style={{ fontFamily: NUM_FONT }}>{pm.name}</span>}
+            <span style={{ color: T.textDim }}>·</span>
+            <span>{dayNum} 日执行</span>
+          </div>
         </div>
+        <Amount value={rule.amount} size={14} weight={600} currency={rule.currency as 'JPY' | 'CNY'} color={isIncome ? T.income : T.ink} sign={isIncome ? '+' : ''} />
+        <span style={{ fontSize: 11, color: T.textDim, marginLeft: 6 }}>{expanded ? '∨' : '›'}</span>
       </div>
-      <Amount value={rule.amount} size={14} weight={600} currency={rule.currency as 'JPY' | 'CNY'} color={isIncome ? T.income : T.ink} sign={isIncome ? '+' : ''} />
+      {expanded && (
+        <div style={{ padding: '0 4px 10px', display: 'flex', gap: 8 }}>
+          {!executing ? (
+            <button onClick={(e) => { e.stopPropagation(); onExecute(); }}
+              style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `1px solid ${T.accent}`, background: T.accentSoft, fontSize: 12, color: T.accent, cursor: 'pointer', fontWeight: 600 }}>
+              提前执行
+            </button>
+          ) : (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); onCancel(); }}
+                style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.textSoft, cursor: 'pointer' }}>
+                取消
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onConfirmExecute(); }}
+                style={{ flex: 2, padding: '7px 0', borderRadius: 8, border: 'none', background: T.accent, fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                确认：{isIncome ? '+' : ''}¥{rule.amount.toLocaleString()} 记今日
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -74,6 +106,15 @@ const TYPE_FILTERS = [
 ];
 
 type TxTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
+type SortBy = 'time-desc' | 'time-asc' | 'amount-desc' | 'amount-asc';
+
+const SORT_LABELS: Record<SortBy, string> = {
+  'time-desc': '时间 ↓',
+  'time-asc': '时间 ↑',
+  'amount-desc': '金额 ↓',
+  'amount-asc': '金额 ↑',
+};
+const SORT_ORDER: SortBy[] = ['time-desc', 'time-asc', 'amount-desc', 'amount-asc'];
 
 function fmtDay(dateStr: string) {
   const m = parseInt(dateStr.slice(5, 7), 10);
@@ -167,18 +208,29 @@ function EditSheet({ tx, onSave, onClose }: {
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 18 }}>编辑记录</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>店铺名称</label>
-            <input value={merchantName} onChange={e => setMerchantName(e.target.value)}
-              placeholder="店铺 / 来源（可选）"
-              style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>品目名称</label>
-            <input value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="可为空（使用分类名）"
-              style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
-          </div>
+          {tx.transactionType === 'transfer' ? (
+            <div style={{ padding: '10px 12px', background: T.transferSoft, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.transfer, fontWeight: 500 }}>
+              <span>{data.paymentMethod(tx.fromAccountId ?? '')?.name ?? '—'}</span>
+              <span style={{ color: T.textDim }}>→</span>
+              <span>{data.paymentMethod(tx.toAccountId ?? '')?.name ?? '—'}</span>
+              <span style={{ marginLeft: 'auto', fontFamily: NUM_FONT, fontWeight: 600 }}>¥{tx.amount.toLocaleString()}</span>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>店铺名称</label>
+                <input value={merchantName} onChange={e => setMerchantName(e.target.value)}
+                  placeholder="店铺 / 来源（可选）"
+                  style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>品目名称</label>
+                <input value={title} onChange={e => setTitle(e.target.value)}
+                  placeholder="可为空（使用分类名）"
+                  style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>日期</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
@@ -400,19 +452,23 @@ export default function TransactionsPage() {
   const data = useData();
   const [month, setMonth] = useState(todayMonth);
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('time-desc');
+  const [filterPmIds, setFilterPmIds] = useState<string[]>([]);
+  const [filterActorIds, setFilterActorIds] = useState<string[]>([]);
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [pendingRules, setPendingRules] = useState<PendingRule[]>([]);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [ccExpanded, setCcExpanded] = useState<string | null>(null);
   const [ccExecuting, setCcExecuting] = useState<string | null>(null);
+  const [ruleExpanded, setRuleExpanded] = useState<string | null>(null);
+  const [ruleExecuting, setRuleExecuting] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<ApiTransaction | null>(null);
 
   const currentMonth = todayMonth();
-  const today = new Date().toISOString().slice(0, 10);
 
   async function loadTxs() {
     setLoading(true);
@@ -466,6 +522,26 @@ export default function TransactionsPage() {
     }
   }
 
+  async function handleExecuteRule(rule: PendingRule) {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      await apiPost('/api/transactions', {
+        transactionType: rule.transactionType,
+        transactionDate: today,
+        amount: rule.amount,
+        currency: rule.currency,
+        categoryId: rule.categoryId,
+        paymentMethodId: rule.paymentMethodId,
+        title: rule.title,
+      });
+      setRuleExpanded(null);
+      setRuleExecuting(null);
+      await loadTxs();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   function handleRowTap(txId: string) {
     if (expanded === txId) {
       setExpanded(null);
@@ -491,8 +567,36 @@ export default function TransactionsPage() {
     setDeleteConfirm(null);
   }
 
+  function togglePmFilter(pmId: string) {
+    setFilterPmIds((prev) =>
+      prev.includes(pmId) ? prev.filter((id) => id !== pmId) : [...prev, pmId]
+    );
+  }
+
+  function toggleActorFilter(actorId: string) {
+    setFilterActorIds((prev) =>
+      prev.includes(actorId) ? prev.filter((id) => id !== actorId) : [...prev, actorId]
+    );
+  }
+
+  function cycleSortBy() {
+    setSortBy((prev) => {
+      const idx = SORT_ORDER.indexOf(prev);
+      return SORT_ORDER[(idx + 1) % SORT_ORDER.length];
+    });
+  }
+
   const filtered = txs.filter((t) => {
-    return typeFilter === 'all' || t.transactionType === typeFilter;
+    if (typeFilter !== 'all' && t.transactionType !== typeFilter) return false;
+    if (filterPmIds.length > 0) {
+      if (t.transactionType === 'transfer') {
+        if (!filterPmIds.includes(t.fromAccountId ?? '') && !filterPmIds.includes(t.toAccountId ?? '')) return false;
+      } else {
+        if (!filterPmIds.includes(t.paymentMethodId ?? '')) return false;
+      }
+    }
+    if (filterActorIds.length > 0 && !filterActorIds.includes(t.actorId)) return false;
+    return true;
   });
 
   const filteredPending = typeFilter === 'transfer' ? [] : pendingRules.filter((r) =>
@@ -524,10 +628,36 @@ export default function TransactionsPage() {
         .filter((cc) => cc.settleMonth === month)
     : [];
 
+  const isAmountSort = sortBy === 'amount-desc' || sortBy === 'amount-asc';
+
+  // Apply sort
+  let sortedFiltered = [...filtered];
+  if (sortBy === 'amount-desc') {
+    sortedFiltered.sort((a, b) => b.amount - a.amount);
+  } else if (sortBy === 'amount-asc') {
+    sortedFiltered.sort((a, b) => a.amount - b.amount);
+  }
+
+  // Build date-grouped structure for time sort
   const byDate: Record<string, ApiTransaction[]> = {};
-  filtered.forEach((t) => { (byDate[t.transactionDate] ??= []).push(t); });
-  Object.values(byDate).forEach((list) => list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-  const dates = Object.keys(byDate).sort().reverse();
+  if (!isAmountSort) {
+    sortedFiltered.forEach((t) => { (byDate[t.transactionDate] ??= []).push(t); });
+    Object.values(byDate).forEach((list) =>
+      list.sort((a, b) =>
+        sortBy === 'time-asc'
+          ? a.createdAt.localeCompare(b.createdAt)
+          : b.createdAt.localeCompare(a.createdAt)
+      )
+    );
+  }
+  const dates = isAmountSort
+    ? []
+    : Object.keys(byDate).sort(
+        sortBy === 'time-asc' ? (a, b) => a.localeCompare(b) : (a, b) => b.localeCompare(a)
+      );
+
+  const activePms = data.paymentMethods.filter((p) => p.isActive);
+  const hasFilters = filterPmIds.length > 0 || filterActorIds.length > 0 || sortBy !== 'time-desc';
 
   return (
     <PhoneScreen>
@@ -555,9 +685,11 @@ export default function TransactionsPage() {
       />
 
       <div style={{ padding: '0 14px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10 }}>
-          <span style={{ color: T.textMute, fontSize: 13 }}>⌕</span>
-          <span style={{ flex: 1, fontSize: 13, color: T.textMute }}>搜索店铺、来源或备注</span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10 }}>
+            <span style={{ color: T.textMute, fontSize: 13 }}>⌕</span>
+            <span style={{ flex: 1, fontSize: 13, color: T.textMute }}>搜索店铺、来源或备注</span>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 4, marginTop: 8, padding: 3, background: T.bgSubtle, borderRadius: 8 }}>
           {TYPE_FILTERS.map((f) => {
@@ -568,6 +700,57 @@ export default function TransactionsPage() {
               </div>
             );
           })}
+        </div>
+        {/* Sort and filter chips */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, overflowX: 'auto', paddingBottom: 2 }}>
+          <div onClick={cycleSortBy} style={{
+            display: 'flex', alignItems: 'center', gap: 3,
+            padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+            background: sortBy !== 'time-desc' ? T.accentSoft : T.bgSubtle,
+            color: sortBy !== 'time-desc' ? T.accent : T.textSoft,
+            border: sortBy !== 'time-desc' ? `1px solid ${T.accent}40` : `1px solid transparent`,
+            fontSize: 11, fontWeight: 500, cursor: 'pointer',
+          }}>
+            {SORT_LABELS[sortBy]}
+          </div>
+          {activePms.map((pm) => {
+            const on = filterPmIds.includes(pm.id);
+            return (
+              <div key={pm.id} onClick={() => togglePmFilter(pm.id)} style={{
+                padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+                background: on ? T.accentSoft : T.bgSubtle,
+                color: on ? T.accent : T.textSoft,
+                border: on ? `1px solid ${T.accent}40` : `1px solid transparent`,
+                fontSize: 11, fontWeight: 500, cursor: 'pointer',
+              }}>
+                {pm.name}
+              </div>
+            );
+          })}
+          {data.actors.map((actor) => {
+            const on = filterActorIds.includes(actor.id);
+            return (
+              <div key={actor.id} onClick={() => toggleActorFilter(actor.id)} style={{
+                padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+                background: on ? T.accentSoft : T.bgSubtle,
+                color: on ? T.accent : T.textSoft,
+                border: on ? `1px solid ${T.accent}40` : `1px solid transparent`,
+                fontSize: 11, fontWeight: 500, cursor: 'pointer',
+              }}>
+                {actor.displayName}
+              </div>
+            );
+          })}
+          {hasFilters && (
+            <div onClick={() => { setSortBy('time-desc'); setFilterPmIds([]); setFilterActorIds([]); }} style={{
+              padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+              background: T.dangerSoft, color: T.danger,
+              border: `1px solid transparent`,
+              fontSize: 11, fontWeight: 500, cursor: 'pointer',
+            }}>
+              重置
+            </div>
+          )}
         </div>
       </div>
 
@@ -582,7 +765,15 @@ export default function TransactionsPage() {
             <Card pad={4} style={{ border: `1px dashed ${T.border}` }}>
               {filteredPending.map((rule, i) => (
                 <div key={rule.id} style={{ padding: '0 8px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
-                  <PendingRuleRow rule={rule} />
+                  <PendingRuleRow
+                    rule={rule}
+                    expanded={ruleExpanded === rule.id}
+                    executing={ruleExecuting === rule.id}
+                    onTap={() => { setRuleExpanded(ruleExpanded === rule.id ? null : rule.id); setRuleExecuting(null); }}
+                    onExecute={() => setRuleExecuting(rule.id)}
+                    onCancel={() => setRuleExecuting(null)}
+                    onConfirmExecute={() => handleExecuteRule(rule)}
+                  />
                 </div>
               ))}
             </Card>
@@ -645,12 +836,34 @@ export default function TransactionsPage() {
             </Card>
           </div>
         )}
-        {!loading && dates.length === 0 && filteredPending.length === 0 && ccPending.length === 0 && (
+        {!loading && sortedFiltered.length === 0 && filteredPending.length === 0 && ccPending.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>
             {month === currentMonth ? '暂无记录' : '该月暂无记录'}
           </div>
         )}
-        {dates.map((d) => {
+
+        {/* Amount sort: flat list */}
+        {!loading && isAmountSort && sortedFiltered.length > 0 && (
+          <Card pad={4}>
+            {sortedFiltered.map((tx, i) => (
+              <div key={tx.id} style={{ padding: '0 8px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, background: tx.transactionType === 'transfer' ? `${T.transferSoft}40` : 'transparent' }}>
+                <ApiTxRow
+                  tx={tx}
+                  expanded={expanded === tx.id}
+                  confirming={deleteConfirm === tx.id}
+                  onTap={() => handleRowTap(tx.id)}
+                  onEdit={() => setEditingTx(tx)}
+                  onDelete={() => setDeleteConfirm(tx.id)}
+                  onConfirmDelete={() => handleConfirmDelete(tx.id)}
+                  onCancelDelete={() => setDeleteConfirm(null)}
+                />
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {/* Time sort: date-grouped */}
+        {!loading && !isAmountSort && dates.map((d) => {
           const { md, wd } = fmtDay(d);
           const dayEx = byDate[d]
             .filter((t) => t.transactionType === 'expense')
