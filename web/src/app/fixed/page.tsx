@@ -46,6 +46,7 @@ interface RuleFormState {
   title: string;
   amountStr: string;
   currency: 'JPY' | 'CNY';
+  actorId: string;
   categoryId: string;
   paymentMethodId: string;
   dayOfMonth: string;
@@ -145,6 +146,24 @@ function RuleSheet({
               </div>
             </div>
           </div>
+
+          {/* Actor */}
+          {data.actors.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>使用人</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {data.actors.map((a) => {
+                  const sel = a.id === form.actorId;
+                  return (
+                    <div key={a.id} onClick={() => set('actorId', sel ? '' : a.id)}
+                      style={{ padding: '5px 10px', borderRadius: 20, border: sel ? `1.5px solid ${T.accent}` : `1px solid ${T.borderSoft}`, background: sel ? `${T.accent}14` : T.bgSubtle, cursor: 'pointer', fontSize: 12, color: sel ? T.accent : T.textSoft, fontWeight: sel ? 600 : 400 }}>
+                      {a.displayName}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Category */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -271,7 +290,7 @@ function RuleRow({ rule, onToggle, onClick }: { rule: RecurringRule; onToggle: (
 }
 
 function emptyForm(): RuleFormState {
-  return { transactionType: 'expense', title: '', amountStr: '', currency: 'JPY', categoryId: '', paymentMethodId: '', dayOfMonth: '', memo: '' };
+  return { transactionType: 'expense', title: '', amountStr: '', currency: 'JPY', actorId: '', categoryId: '', paymentMethodId: '', dayOfMonth: '', memo: '' };
 }
 
 function ruleToForm(rule: RecurringRule): RuleFormState {
@@ -280,6 +299,7 @@ function ruleToForm(rule: RecurringRule): RuleFormState {
     title: rule.title,
     amountStr: String(rule.amount),
     currency: rule.currency as 'JPY' | 'CNY',
+    actorId: rule.actorId ?? '',
     categoryId: rule.categoryId ?? '',
     paymentMethodId: rule.paymentMethodId ?? '',
     dayOfMonth: rule.dayOfMonth > 0 ? String(rule.dayOfMonth) : '',
@@ -339,7 +359,7 @@ export default function FixedPage() {
       dayOfMonth,
       nextRunDate,
       memo: form.memo || undefined,
-      actorId: data.me?.actorId,
+      actorId: form.actorId || data.me?.actorId,
     });
     setShowAdd(false);
     await fetchRules();
@@ -353,6 +373,7 @@ export default function FixedPage() {
       title: form.title.trim(),
       amount,
       currency: form.currency,
+      actorId: form.actorId || data.me?.actorId,
       categoryId: form.categoryId || '',
       paymentMethodId: form.paymentMethodId || '',
       dayOfMonth,

@@ -127,6 +127,7 @@ func patchRecurringRule(w http.ResponseWriter, r *http.Request) {
 		Title           *string `json:"title"`
 		Amount          *int64  `json:"amount"`
 		Currency        *string `json:"currency"`
+		ActorID         *string `json:"actorId"`
 		CategoryID      *string `json:"categoryId"`
 		PaymentMethodID *string `json:"paymentMethodId"`
 		DayOfMonth      *int    `json:"dayOfMonth"`
@@ -143,6 +144,7 @@ func patchRecurringRule(w http.ResponseWriter, r *http.Request) {
 	if req.Title != nil           { updates["title"] = *req.Title }
 	if req.Amount != nil          { updates["amount"] = *req.Amount }
 	if req.Currency != nil        { updates["currency"] = *req.Currency }
+	if req.ActorID != nil         { updates["actorId"] = *req.ActorID }
 	if req.CategoryID != nil      { updates["categoryId"] = *req.CategoryID }
 	if req.PaymentMethodID != nil { updates["paymentMethodId"] = *req.PaymentMethodID }
 	if req.DayOfMonth != nil      { updates["dayOfMonth"] = *req.DayOfMonth }
