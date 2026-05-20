@@ -404,6 +404,7 @@ export default function TransactionsPage() {
   const [pendingRules, setPendingRules] = useState<PendingRule[]>([]);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [ccExpanded, setCcExpanded] = useState<string | null>(null);
   const [ccExecuting, setCcExecuting] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -504,10 +505,18 @@ export default function TransactionsPage() {
     ? data.paymentMethods
         .filter((p) => p.type === 'credit_card' && p.isActive && p.settlementDay && (pmBalances[p.id] ?? 0) < 0)
         .map((p) => {
+          const bd = p.billingDay || 31;
           const sd = p.settlementDay!;
           const d = new Date();
+          const td = d.getDate();
           let sy = d.getFullYear(), sm = d.getMonth() + 1;
-          if (sd < todayDay) { sm++; if (sm > 12) { sm = 1; sy++; } }
+          if (td <= bd) {
+            // billing period still open this month → settlement is next month
+            sm++; if (sm > 12) { sm = 1; sy++; }
+          } else {
+            // billing period closed → settlement this month (if sd >= td) or next month
+            if (sd < td) { sm++; if (sm > 12) { sm = 1; sy++; } }
+          }
           const settleMonth = `${sy}-${String(sm).padStart(2, '0')}`;
           const settleDate = `${sy}-${String(sm).padStart(2, '0')}-${String(sd).padStart(2, '0')}`;
           return { id: p.id, name: p.name, amount: Math.abs(pmBalances[p.id]!), settlementDay: sd, settleMonth, settleDate, debitPmId: p.debitPmId ?? '' };
@@ -587,10 +596,12 @@ export default function TransactionsPage() {
               {ccPending.map((cc, i) => {
                 const [, sm] = cc.settleMonth.split('-').map(Number);
                 const debitPm = cc.debitPmId ? data.paymentMethod(cc.debitPmId) : null;
+                const isExpanded = ccExpanded === cc.id;
                 const isExec = ccExecuting === cc.id;
                 return (
                   <div key={cc.id} style={{ borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+                    <div onClick={() => { setCcExpanded(isExpanded ? null : cc.id); setCcExecuting(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
                       <div style={{ width: 34, height: 34, borderRadius: 10, background: T.warningSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>💳</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{cc.name} 还款</div>
@@ -601,27 +612,31 @@ export default function TransactionsPage() {
                         </div>
                       </div>
                       <Amount value={cc.amount} size={14} weight={600} color={T.warning} />
+                      <span style={{ fontSize: 11, color: T.textDim, marginLeft: 4 }}>{isExpanded ? '∨' : '›'}</span>
                     </div>
-                    {cc.debitPmId && (
+                    {isExpanded && cc.debitPmId && (
                       <div style={{ padding: '0 12px 10px', display: 'flex', gap: 8 }}>
                         {!isExec ? (
-                          <button onClick={() => setCcExecuting(cc.id)}
+                          <button onClick={(e) => { e.stopPropagation(); setCcExecuting(cc.id); }}
                             style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `1px solid ${T.warning}`, background: T.warningSoft, fontSize: 12, color: T.warning, cursor: 'pointer', fontWeight: 600 }}>
                             执行还款
                           </button>
                         ) : (
                           <>
-                            <button onClick={() => setCcExecuting(null)}
+                            <button onClick={(e) => { e.stopPropagation(); setCcExecuting(null); }}
                               style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.textSoft, cursor: 'pointer' }}>
                               取消
                             </button>
-                            <button onClick={() => handleExecuteCC(cc)}
+                            <button onClick={(e) => { e.stopPropagation(); handleExecuteCC(cc); }}
                               style={{ flex: 2, padding: '7px 0', borderRadius: 8, border: 'none', background: T.warning, fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
                               确认：从 {debitPm?.name} 转 ¥{cc.amount.toLocaleString()}
                             </button>
                           </>
                         )}
                       </div>
+                    )}
+                    {isExpanded && !cc.debitPmId && (
+                      <div style={{ padding: '0 12px 10px', fontSize: 11, color: T.textMute }}>在设置页配置"扣款账户"后可一键执行还款</div>
                     )}
                   </div>
                 );

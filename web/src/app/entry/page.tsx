@@ -92,6 +92,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const [pmId, setPmId] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
 
   // Set defaults once data loads
@@ -99,7 +100,6 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const defaultPmId = pmId || pms[0]?.id || '';
 
   const amount = Math.round(parseFloat(amountStr) || 0);
-  const today = new Date().toISOString().slice(0, 10);
 
   async function handleSave() {
     if (amount <= 0 || saving) return;
@@ -107,7 +107,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
     try {
       const req: CreateTransactionRequest = {
         transactionType: mode,
-        transactionDate: today,
+        transactionDate: date,
         amount,
         currency,
         actorId: state.currentRole,
@@ -163,7 +163,8 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
       <Row label="角色"><RoleSwitcher /></Row>
 
       <Row label="日期">
-        <div style={{ padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink }}>{today}</div>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box' }} />
       </Row>
 
       {cats.length > 0 && (
