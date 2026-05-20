@@ -21,6 +21,7 @@ interface PendingRule {
   transactionType: string;
   categoryId: string;
   paymentMethodId: string;
+  dayOfMonth: number;
   nextRunDate: string;
   isActive: boolean;
 }
@@ -31,7 +32,7 @@ function PendingRuleRow({ rule }: { rule: PendingRule }) {
   const pm = data.paymentMethod(rule.paymentMethodId ?? '');
   const { mark, tint } = catDisplay(cat?.name ?? '');
   const isIncome = rule.transactionType === 'income';
-  const dayNum = parseInt(rule.nextRunDate.slice(8), 10);
+  const dayNum = rule.dayOfMonth;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px' }}>
       <div style={{ width: 34, height: 34, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, fontFamily: CN_FONT, flexShrink: 0, color: T.ink, border: `1.5px dashed ${T.border}` }}>{mark}</div>
@@ -388,9 +389,10 @@ export default function TransactionsPage() {
         apiGet<PendingRule[]>('/api/recurring-rules'),
       ]);
       setTxs(txData);
+      const todayDayOfMonth = new Date().getDate();
       setPendingRules(
-        rules.filter((r) => r.isActive && r.nextRunDate >= today && r.nextRunDate.startsWith(month))
-          .sort((a, b) => a.nextRunDate.localeCompare(b.nextRunDate))
+        rules.filter((r) => r.isActive && r.dayOfMonth >= todayDayOfMonth)
+          .sort((a, b) => a.dayOfMonth - b.dayOfMonth)
       );
     } catch (e) {
       console.error(e);
