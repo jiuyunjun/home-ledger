@@ -96,7 +96,7 @@ function RuleSheet({
   return (
     <>
       <Backdrop onClose={onClose} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)', maxHeight: '90%', overflowY: 'auto' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 390, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)', maxHeight: '90dvh', overflowY: 'auto' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 16 }}>
           {onDelete ? '编辑规则' : '新建规则'}
         </div>
@@ -345,9 +345,13 @@ export default function FixedPage() {
     const year = today.getFullYear();
     const month = today.getMonth() + 1;
     const runDay = Math.min(dayOfMonth, 28);
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextRunDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(runDay).padStart(2, '0')}`;
+    // Use current month if the scheduled day hasn't passed yet, otherwise next month
+    let targetYear = year, targetMonth = month;
+    if (dayOfMonth < today.getDate()) {
+      targetMonth = month === 12 ? 1 : month + 1;
+      targetYear = month === 12 ? year + 1 : year;
+    }
+    const nextRunDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(runDay).padStart(2, '0')}`;
     await apiPost('/api/recurring-rules', {
       transactionType: form.transactionType,
       title: form.title.trim(),

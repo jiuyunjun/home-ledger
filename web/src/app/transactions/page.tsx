@@ -19,6 +19,7 @@ interface PendingRule {
   amount: number;
   currency: string;
   transactionType: string;
+  actorId: string;
   categoryId: string;
   paymentMethodId: string;
   dayOfMonth: number;
@@ -672,7 +673,8 @@ export default function TransactionsPage() {
   });
 
   const filteredPending = typeFilter === 'transfer' ? [] : pendingRules.filter((r) =>
-    typeFilter === 'all' || r.transactionType === typeFilter
+    (typeFilter === 'all' || r.transactionType === typeFilter) &&
+    (filterActorIds.length === 0 || filterActorIds.includes(r.actorId))
   );
 
   // Credit card pending payments scoped to the currently viewed month
