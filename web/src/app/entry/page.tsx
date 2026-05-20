@@ -245,8 +245,8 @@ function TransferForm() {
   const defaultTo = toPmId || pms[1]?.id || '';
   const fromPm = data.paymentMethod(defaultFrom);
   const toPm = data.paymentMethod(defaultTo);
-  const fromCur = (fromPm?.currency ?? 'JPY') as 'JPY' | 'CNY';
-  const toCur = (toPm?.currency ?? 'JPY') as 'JPY' | 'CNY';
+  const fromCur = (fromPm?.currency || 'JPY') as 'JPY' | 'CNY';
+  const toCur = (toPm?.currency || 'JPY') as 'JPY' | 'CNY';
   const isCross = fromCur !== toCur;
   const isSamePm = defaultFrom === defaultTo;
   const fromAmt = Math.round(parseFloat(fromAmount) || 0);

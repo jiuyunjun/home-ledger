@@ -529,6 +529,20 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {/* Fixed recurring rules entry */}
+        <SectionLabel>固定收支</SectionLabel>
+        <Card pad={0} style={{ marginBottom: 16 }}>
+          <div onClick={() => router.push('/fixed')}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px', cursor: 'pointer' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: T.bgSubtle, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>↻</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, color: T.ink }}>固定收支规则</div>
+              <div style={{ fontSize: 10, color: T.textMute, marginTop: 2 }}>房租、工资等定期收支</div>
+            </div>
+            <span style={{ color: T.textDim, fontSize: 14 }}>›</span>
+          </div>
+        </Card>
+
         <div style={{ textAlign: 'center', padding: '10px 0 6px', fontSize: 10, color: T.textDim }}>
           家计簿 v0.1 · made with care
         </div>
