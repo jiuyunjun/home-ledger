@@ -421,7 +421,7 @@ export default function BudgetPage() {
         )}
       </div>
 
-      <BottomNav />
+      <BottomNav active="budget" />
     </PhoneScreen>
   );
 }

@@ -80,7 +80,14 @@ Rules (apply independently to each receipt):
 - totalAmount: final paid total in minor units (JPY = integer yen; CNY = integer fen, ¥1.00 = 100).
 - lineItems: one entry per distinct product/service line printed on that receipt.
   If no itemised list is visible, create one item using the total amount.
-- amount per item: integer minor units matching the receipt's currency.
+- amount per item: the final amount the customer actually paid for that item, in integer
+  minor units. This means AFTER applying that item's tax and any discounts/coupons.
+  For mixed-tax receipts (e.g. 8% food + 10% other): compute each item's tax-inclusive
+  price. For discounts or member-price reductions applied to specific items: subtract
+  the discount from that item's amount. For store-wide discounts (e.g. 10% off total):
+  distribute proportionally across items.
+  CRITICAL: sum(lineItems[].amount) MUST equal totalAmount exactly. If rounding
+  causes a 1-yen/fen gap, add or subtract 1 from the largest item to make it balance.
 - name: translate to simplified Chinese.
   コーヒー→咖啡, ポケモンカード→宝可梦卡片, シャンプー→洗发水, 牛乳→牛奶,
   弁当→便当, チキン→炸鸡, お茶→绿茶. Keep Chinese or English names as-is.

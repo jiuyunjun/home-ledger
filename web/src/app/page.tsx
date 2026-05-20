@@ -340,7 +340,7 @@ export default function DashboardPage() {
             {/* Budget alerts */}
             {overOrNear.length > 0 && (
               <>
-                <SectionLabel right={`${overOrNear.length} 项需关注`}>预算预警</SectionLabel>
+                <SectionLabel right={<Link href="/budget" style={{ fontSize: 11, color: T.accent, fontWeight: 600, textDecoration: 'none' }}>{overOrNear.length} 项需关注 ›</Link>}>预算预警</SectionLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                   {overOrNear.map((u) => {
                     const cat = data.category(u.categoryId);

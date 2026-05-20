@@ -322,7 +322,7 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
         <span style={{ fontSize: 11, color: T.textDim, marginLeft: 6 }}>{expanded ? '∨' : '›'}</span>
       </div>
       {expanded && (
-        <ActionRow onEdit={onEdit} onDelete={onDelete} confirming={confirming} onConfirmDelete={onConfirmDelete} onCancelDelete={onCancelDelete} />
+        <ActionRow receiptId={tx.receiptId} onEdit={onEdit} onDelete={onDelete} confirming={confirming} onConfirmDelete={onConfirmDelete} onCancelDelete={onCancelDelete} />
       )}
     </div>
   );

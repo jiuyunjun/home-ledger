@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"sort"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/grpc/codes"
@@ -13,7 +14,6 @@ import (
 func ListRecurringRules(ctx context.Context, householdID string) ([]*domain.RecurringRule, error) {
 	docs, err := fs(ctx).Collection("recurring_rules").
 		Where("householdId", "==", householdID).
-		OrderBy("createdAt", firestore.Asc).
 		Documents(ctx).GetAll()
 	if err != nil {
 		return nil, err
@@ -26,6 +26,9 @@ func ListRecurringRules(ctx context.Context, householdID string) ([]*domain.Recu
 		}
 		rules = append(rules, &r)
 	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt.Before(rules[j].CreatedAt)
+	})
 	return rules, nil
 }
 
