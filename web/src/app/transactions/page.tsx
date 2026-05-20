@@ -526,6 +526,7 @@ export default function TransactionsPage() {
 
   const byDate: Record<string, ApiTransaction[]> = {};
   filtered.forEach((t) => { (byDate[t.transactionDate] ??= []).push(t); });
+  Object.values(byDate).forEach((list) => list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   const dates = Object.keys(byDate).sort().reverse();
 
   return (
