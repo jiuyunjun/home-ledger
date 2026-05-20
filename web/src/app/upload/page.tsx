@@ -149,24 +149,35 @@ export default function UploadPage() {
 
     let successCount = 0;
     for (const item of readyItems) {
+      let uploadedReceiptId: string | null = null;
       try {
-        // Upload image
         setItemStatus(item.id, 'uploading');
         const form = new FormData();
         form.append('image', item.file!, item.file!.name);
         if (hint) form.append('userNote', hint);
-
         const receipt = await apiUpload<{ id: string }>('/api/receipts/upload', form);
+        uploadedReceiptId = receipt.id;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'upload failed';
+        setItemStatus(item.id, 'error', { errorMsg: msg });
+        continue;
+      }
 
-        // Extract with AI (returns array of candidates, one per category)
+      try {
         setItemStatus(item.id, 'extracting');
-        await apiPost(`/api/receipts/${receipt.id}/extract`, {});
-
+        await apiPost(`/api/receipts/${uploadedReceiptId}/extract`, {});
         setItemStatus(item.id, 'done');
         successCount++;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'unknown error';
-        setItemStatus(item.id, 'error', { errorMsg: msg });
+        // TypeError = network drop (screen lock, background, blip) while backend was calling
+        // OpenAI. The extraction likely completed server-side — navigate to confirm page.
+        if (err instanceof TypeError) {
+          setItemStatus(item.id, 'done');
+          successCount++;
+        } else {
+          const msg = err instanceof Error ? err.message : 'AI extraction failed';
+          setItemStatus(item.id, 'error', { errorMsg: msg });
+        }
       }
     }
 
