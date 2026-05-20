@@ -139,6 +139,7 @@ export interface CreateTransactionRequest {
   convertedAmount?: number;
   convertedCurrency?: Currency;
   exchangeRate?: string;
+  merchantName?: string;
   title?: string;
   memo?: string;
 }

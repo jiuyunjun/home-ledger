@@ -90,6 +90,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const [currency, setCurrency] = useState<'JPY' | 'CNY'>('JPY');
   const [catId, setCatId] = useState('');
   const [pmId, setPmId] = useState('');
+  const [merchantName, setMerchantName] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -113,6 +114,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
         actorId: state.currentRole,
         categoryId: defaultCatId || undefined,
         paymentMethodId: defaultPmId || undefined,
+        merchantName: merchantName || undefined,
         title: title || cats.find((c) => c.id === defaultCatId)?.name || '',
         memo: note,
       };
@@ -127,6 +129,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
 
   function handleReset() {
     setAmountStr('');
+    setMerchantName('');
     setTitle('');
     setNote('');
   }
@@ -187,12 +190,22 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
         </Row>
       )}
 
-      <Row label={isIncome ? '来源 / 标题' : '店铺 / 标题'}>
+      <Row label={isIncome ? '来源' : '店铺名称'}>
+        <input
+          type="text"
+          value={merchantName}
+          onChange={(e) => setMerchantName(e.target.value)}
+          placeholder={isIncome ? '公司、平台名称（可选）' : '店铺 / 付款方（可选）'}
+          style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box', fontFamily: CN_FONT }}
+        />
+      </Row>
+
+      <Row label="品目名称">
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={isIncome ? '工资、奖金等' : '店铺名称'}
+          placeholder={isIncome ? '工资、奖金、报销等（可选）' : '可为空（使用分类名）'}
           style={{ width: '100%', padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box', fontFamily: CN_FONT }}
         />
       </Row>
