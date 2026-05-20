@@ -53,6 +53,7 @@ export interface PaymentMethod {
   ownerActorId: string;
   billingDay?: number;
   settlementDay?: number;
+  debitPmId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

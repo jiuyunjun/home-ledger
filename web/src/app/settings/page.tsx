@@ -166,13 +166,17 @@ function AddPaymentMethodSheet({ onClose, onSaved }: { onClose: () => void; onSa
 // ─── Edit payment method sheet ────────────────────────────────────────────────
 
 function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; onClose: () => void; onSaved: () => void }) {
+  const data = useData();
   const [name, setName] = useState(pm.name);
   const [active, setActive] = useState(pm.isActive);
   const [billingDay, setBillingDay] = useState(pm.billingDay ? String(pm.billingDay) : '');
   const [settlementDay, setSettlementDay] = useState(pm.settlementDay ? String(pm.settlementDay) : '');
+  const [debitPmId, setDebitPmId] = useState(pm.debitPmId ?? '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const isCreditCard = pm.type === 'credit_card';
+
+  const debitablePms = data.paymentMethods.filter((p) => p.isActive && p.id !== pm.id && p.type !== 'credit_card');
 
   async function handleSave() {
     setSaving(true);
@@ -181,6 +185,7 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
       if (isCreditCard) {
         patch.billingDay = parseInt(billingDay) || 0;
         patch.settlementDay = parseInt(settlementDay) || 0;
+        patch.debitPmId = debitPmId || '';
       }
       await apiPatch(`/api/payment-methods/${pm.id}`, patch);
       onSaved();
@@ -221,6 +226,21 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
               </div>
             </div>
             <div style={{ fontSize: 10, color: T.textMute, marginTop: -6 }}>账单日：每月结账日（如末日填 31）· 还款日：次月还款日</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>扣款账户</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <div onClick={() => setDebitPmId('')}
+                  style={{ padding: '5px 10px', borderRadius: 999, border: `1.5px solid ${!debitPmId ? T.accent : T.border}`, background: !debitPmId ? T.accentSoft : T.surface, fontSize: 12, color: !debitPmId ? T.accent : T.textSoft, cursor: 'pointer', fontWeight: 500 }}>
+                  未设置
+                </div>
+                {debitablePms.map((p) => (
+                  <div key={p.id} onClick={() => setDebitPmId(p.id)}
+                    style={{ padding: '5px 10px', borderRadius: 999, border: `1.5px solid ${debitPmId === p.id ? T.accent : T.border}`, background: debitPmId === p.id ? T.accentSoft : T.surface, fontSize: 12, color: debitPmId === p.id ? T.accent : T.textSoft, cursor: 'pointer', fontWeight: 500 }}>
+                    {p.name}
+                  </div>
+                ))}
+              </div>
+            </div>
           </>
         )}
         <div onClick={() => setActive((v) => !v)}

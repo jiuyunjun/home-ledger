@@ -7,7 +7,7 @@ import { Amount } from '@/components/ui/Amount';
 import { Card } from '@/components/ui/Card';
 import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
-import { apiDelete, apiGet, apiGetBlob, apiPatch } from '@/lib/api';
+import { apiDelete, apiGet, apiGetBlob, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import { T, NUM_FONT, CN_FONT } from '@/lib/tokens';
 import type { ApiTransaction } from '@/lib/types';
@@ -48,6 +48,22 @@ function PendingRuleRow({ rule }: { rule: PendingRule }) {
       <Amount value={rule.amount} size={14} weight={600} currency={rule.currency as 'JPY' | 'CNY'} color={isIncome ? T.income : T.ink} sign={isIncome ? '+' : ''} />
     </div>
   );
+}
+
+function todayMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function addMonths(ym: string, delta: number) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function fmtMonth(ym: string) {
+  const [y, m] = ym.split('-');
+  return `${y} 年 ${parseInt(m)} 月`;
 }
 
 const TYPE_FILTERS = [
@@ -114,12 +130,14 @@ function EditSheet({ tx, onSave, onClose }: {
   const [saving, setSaving] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [receiptExpanded, setReceiptExpanded] = useState(false);
+  const [receiptLoading, setReceiptLoading] = useState(!!tx.receiptId);
 
   useEffect(() => {
     if (!tx.receiptId) return;
+    setReceiptLoading(true);
     apiGetBlob(`/api/receipts/${tx.receiptId}/image`)
-      .then(setReceiptUrl)
-      .catch(() => {});
+      .then((url) => { setReceiptUrl(url); setReceiptLoading(false); })
+      .catch(() => setReceiptLoading(false));
   }, [tx.receiptId]);
 
   const cat = data.category(categoryId);
@@ -183,13 +201,25 @@ function EditSheet({ tx, onSave, onClose }: {
               placeholder="可选"
               style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
           </div>
-          {receiptUrl && (
+          {tx.receiptId && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>小票图片</label>
-              <div onClick={() => setReceiptExpanded((v) => !v)} style={{ cursor: 'pointer', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}` }}>
-                <img src={receiptUrl} alt="小票" style={{ width: '100%', display: 'block', maxHeight: receiptExpanded ? 'none' : 120, objectFit: receiptExpanded ? 'contain' : 'cover', objectPosition: 'top' }} />
-              </div>
-              <div style={{ fontSize: 10, color: T.textMute, textAlign: 'center' }}>{receiptExpanded ? '点击收起' : '点击查看完整小票'}</div>
+              {receiptLoading ? (
+                <div style={{ height: 120, borderRadius: 10, border: `1px solid ${T.border}`, background: 'linear-gradient(90deg,#f0ece6 25%,#e8e2da 50%,#f0ece6 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 12, color: T.textMute }}>小票加载中…</span>
+                </div>
+              ) : receiptUrl ? (
+                <>
+                  <div onClick={() => setReceiptExpanded((v) => !v)} style={{ cursor: 'pointer', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}` }}>
+                    <img src={receiptUrl} alt="小票" style={{ width: '100%', display: 'block', maxHeight: receiptExpanded ? 'none' : 120, objectFit: receiptExpanded ? 'contain' : 'cover', objectPosition: 'top' }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: T.textMute, textAlign: 'center' }}>{receiptExpanded ? '点击收起' : '点击查看完整小票'}</div>
+                </>
+              ) : (
+                <div style={{ height: 60, borderRadius: 10, border: `1px dashed ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 12, color: T.textMute }}>小票加载失败</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -368,17 +398,19 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
 export default function TransactionsPage() {
   const { state } = useApp();
   const data = useData();
+  const [month, setMonth] = useState(todayMonth);
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [pendingRules, setPendingRules] = useState<PendingRule[]>([]);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [ccExecuting, setCcExecuting] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<ApiTransaction | null>(null);
 
-  const month = new Date().toISOString().slice(0, 7);
+  const currentMonth = todayMonth();
   const today = new Date().toISOString().slice(0, 10);
 
   async function loadTxs() {
@@ -386,18 +418,23 @@ export default function TransactionsPage() {
     const params = new URLSearchParams({ month });
     if (state.currentRole) params.set('actorId', state.currentRole);
     try {
-      const [txData, rules, balances] = await Promise.all([
+      const [txData, balances] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?${params}`),
-        apiGet<PendingRule[]>('/api/recurring-rules'),
         apiGet<Record<string, number>>('/api/payment-methods/balances'),
-      ]);
+      ] as const);
       setTxs(txData);
       setPmBalances(balances);
-      const todayDayOfMonth = new Date().getDate();
-      setPendingRules(
-        rules.filter((r) => r.isActive && r.dayOfMonth >= todayDayOfMonth)
-          .sort((a, b) => a.dayOfMonth - b.dayOfMonth)
-      );
+
+      if (month === currentMonth) {
+        const rules = await apiGet<PendingRule[]>('/api/recurring-rules');
+        const todayDayOfMonth = new Date().getDate();
+        setPendingRules(
+          rules.filter((r) => r.isActive && r.dayOfMonth >= todayDayOfMonth)
+            .sort((a, b) => a.dayOfMonth - b.dayOfMonth)
+        );
+      } else {
+        setPendingRules([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -409,6 +446,24 @@ export default function TransactionsPage() {
     loadTxs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentRole, month]);
+
+  async function handleExecuteCC(cc: { id: string; name: string; amount: number; debitPmId: string; settleDate: string }) {
+    try {
+      await apiPost('/api/transactions', {
+        transactionType: 'transfer',
+        fromAccountId: cc.debitPmId,
+        toAccountId: cc.id,
+        amount: cc.amount,
+        currency: 'JPY',
+        transactionDate: cc.settleDate,
+        title: `${cc.name} 还款`,
+      });
+      setCcExecuting(null);
+      await loadTxs();
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   function handleRowTap(txId: string) {
     if (expanded === txId) {
@@ -443,17 +498,21 @@ export default function TransactionsPage() {
     typeFilter === 'all' || r.transactionType === typeFilter
   );
 
-  // Credit card pending payments: only show when viewing expense or all
+  // Credit card pending payments scoped to the currently viewed month
   const todayDay = new Date().getDate();
   const ccPending = (typeFilter === 'all' || typeFilter === 'expense')
-    ? data.paymentMethods.filter((p) => p.type === 'credit_card' && p.isActive && p.settlementDay && (pmBalances[p.id] ?? 0) < 0)
+    ? data.paymentMethods
+        .filter((p) => p.type === 'credit_card' && p.isActive && p.settlementDay && (pmBalances[p.id] ?? 0) < 0)
         .map((p) => {
-          const amount = Math.abs(pmBalances[p.id]!);
           const sd = p.settlementDay!;
           const d = new Date();
-          const settleMonth = sd >= todayDay ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : `${d.getFullYear()}-${String(d.getMonth() + 2).padStart(2, '0')}`;
-          return { id: p.id, name: p.name, amount, settlementDay: sd, settleMonth };
+          let sy = d.getFullYear(), sm = d.getMonth() + 1;
+          if (sd < todayDay) { sm++; if (sm > 12) { sm = 1; sy++; } }
+          const settleMonth = `${sy}-${String(sm).padStart(2, '0')}`;
+          const settleDate = `${sy}-${String(sm).padStart(2, '0')}-${String(sd).padStart(2, '0')}`;
+          return { id: p.id, name: p.name, amount: Math.abs(pmBalances[p.id]!), settlementDay: sd, settleMonth, settleDate, debitPmId: p.debitPmId ?? '' };
         })
+        .filter((cc) => cc.settleMonth === month)
     : [];
 
   const byDate: Record<string, ApiTransaction[]> = {};
@@ -468,8 +527,21 @@ export default function TransactionsPage() {
 
       <AppBar
         title="明细"
-        subtitle={`${month.replace('-', ' 年 ')} 月 · 共 ${filtered.length} 笔`}
-        right={<div style={{ fontSize: 12, color: T.accent, fontWeight: 600 }}>导出</div>}
+        subtitle={fmtMonth(month)}
+        left={
+          <div onClick={() => setMonth((m) => addMonths(m, -1))}
+            style={{ fontSize: 20, color: T.textSoft, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>‹</div>
+        }
+        right={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {month !== currentMonth && (
+              <div onClick={() => setMonth(currentMonth)}
+                style={{ fontSize: 11, color: T.accent, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: T.accentSoft, cursor: 'pointer' }}>本月</div>
+            )}
+            <div onClick={() => setMonth((m) => addMonths(m, 1))}
+              style={{ fontSize: 20, color: month === currentMonth ? T.textDim : T.textSoft, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: month === currentMonth ? 'default' : 'pointer' }}>›</div>
+          </div>
+        }
       />
 
       <div style={{ padding: '0 14px 8px' }}>
@@ -508,25 +580,49 @@ export default function TransactionsPage() {
         )}
         {!loading && ccPending.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px 6px' }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: T.warning }}>信用卡还款</span>
+            <div style={{ padding: '0 4px 6px' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: T.warning }}>信用卡待还款</span>
             </div>
-            <Card pad={4} style={{ border: `1px dashed ${T.warningSoft}` }}>
+            <Card pad={0} style={{ border: `1px dashed ${T.warning}50` }}>
               {ccPending.map((cc, i) => {
-                const [y, m] = cc.settleMonth.split('-').map(Number);
-                const monthLabel = `${m}月${cc.settlementDay}日`;
+                const [, sm] = cc.settleMonth.split('-').map(Number);
+                const debitPm = cc.debitPmId ? data.paymentMethod(cc.debitPmId) : null;
+                const isExec = ccExecuting === cc.id;
                 return (
-                  <div key={cc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: T.warningSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.warning, flexShrink: 0, border: `1.5px dashed ${T.warning}40` }}>💳</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{cc.name} 还款</div>
-                      <div style={{ fontSize: 11, color: T.textMute, marginTop: 2 }}>
-                        <span style={{ background: T.warningSoft, color: T.warning, borderRadius: 4, padding: '1px 5px', fontWeight: 600, marginRight: 6 }}>待还</span>
-                        {y !== new Date().getFullYear() || m !== new Date().getMonth() + 1
-                          ? `${m}月` : ''}{monthLabel}还款
+                  <div key={cc.id} style={{ borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 10, background: T.warningSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>💳</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{cc.name} 还款</div>
+                        <div style={{ fontSize: 11, color: T.textMute, marginTop: 2 }}>
+                          <span style={{ background: T.warningSoft, color: T.warning, borderRadius: 4, padding: '1px 5px', fontWeight: 600, marginRight: 4 }}>待还</span>
+                          {sm}月{cc.settlementDay}日
+                          {debitPm && <span style={{ marginLeft: 4 }}>· 从 {debitPm.name}</span>}
+                        </div>
                       </div>
+                      <Amount value={cc.amount} size={14} weight={600} color={T.warning} />
                     </div>
-                    <Amount value={cc.amount} size={14} weight={600} color={T.warning} />
+                    {cc.debitPmId && (
+                      <div style={{ padding: '0 12px 10px', display: 'flex', gap: 8 }}>
+                        {!isExec ? (
+                          <button onClick={() => setCcExecuting(cc.id)}
+                            style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `1px solid ${T.warning}`, background: T.warningSoft, fontSize: 12, color: T.warning, cursor: 'pointer', fontWeight: 600 }}>
+                            执行还款
+                          </button>
+                        ) : (
+                          <>
+                            <button onClick={() => setCcExecuting(null)}
+                              style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, fontSize: 12, color: T.textSoft, cursor: 'pointer' }}>
+                              取消
+                            </button>
+                            <button onClick={() => handleExecuteCC(cc)}
+                              style={{ flex: 2, padding: '7px 0', borderRadius: 8, border: 'none', background: T.warning, fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                              确认：从 {debitPm?.name} 转 ¥{cc.amount.toLocaleString()}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -534,7 +630,9 @@ export default function TransactionsPage() {
           </div>
         )}
         {!loading && dates.length === 0 && filteredPending.length === 0 && ccPending.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>暂无记录</div>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>
+            {month === currentMonth ? '暂无记录' : '该月暂无记录'}
+          </div>
         )}
         {dates.map((d) => {
           const { md, wd } = fmtDay(d);

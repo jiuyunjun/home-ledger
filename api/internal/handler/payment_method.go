@@ -101,6 +101,7 @@ func patchPaymentMethod(w http.ResponseWriter, r *http.Request) {
 		IsActive      *bool   `json:"isActive"`
 		BillingDay    *int    `json:"billingDay"`
 		SettlementDay *int    `json:"settlementDay"`
+		DebitPmID     *string `json:"debitPmId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAppError(w, domain.NewValidationError("invalid request body", ""))
@@ -112,6 +113,7 @@ func patchPaymentMethod(w http.ResponseWriter, r *http.Request) {
 	if req.IsActive != nil      { updates["isActive"] = *req.IsActive }
 	if req.BillingDay != nil    { updates["billingDay"] = *req.BillingDay }
 	if req.SettlementDay != nil { updates["settlementDay"] = *req.SettlementDay }
+	if req.DebitPmID != nil     { updates["debitPmId"] = *req.DebitPmID }
 
 	if err := repo.UpdatePaymentMethod(r.Context(), pmID, updates); err != nil {
 		writeAppError(w, domain.NewInternalError(err))

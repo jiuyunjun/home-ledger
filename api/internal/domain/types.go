@@ -138,6 +138,7 @@ type PaymentMethod struct {
 	OwnerActorID  string      `json:"ownerActorId" firestore:"ownerActorId"`
 	BillingDay    int         `json:"billingDay,omitempty" firestore:"billingDay,omitempty"`
 	SettlementDay int         `json:"settlementDay,omitempty" firestore:"settlementDay,omitempty"`
+	DebitPmID     string      `json:"debitPmId,omitempty" firestore:"debitPmId,omitempty"`
 	IsActive      bool        `json:"isActive" firestore:"isActive"`
 	CreatedAt     time.Time   `json:"createdAt" firestore:"createdAt"`
 	UpdatedAt     time.Time   `json:"updatedAt" firestore:"updatedAt"`
