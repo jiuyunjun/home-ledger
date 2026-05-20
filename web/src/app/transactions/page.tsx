@@ -451,6 +451,7 @@ export default function TransactionsPage() {
   const { state } = useApp();
   const data = useData();
   const [month, setMonth] = useState(todayMonth);
+  const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('time-desc');
   const [filterPmIds, setFilterPmIds] = useState<string[]>([]);
@@ -586,6 +587,8 @@ export default function TransactionsPage() {
     });
   }
 
+  const q = searchQuery.trim().toLowerCase();
+
   const filtered = txs.filter((t) => {
     if (typeFilter !== 'all' && t.transactionType !== typeFilter) return false;
     if (filterPmIds.length > 0) {
@@ -596,6 +599,10 @@ export default function TransactionsPage() {
       }
     }
     if (filterActorIds.length > 0 && !filterActorIds.includes(t.actorId)) return false;
+    if (q) {
+      const hay = [t.title, t.merchantName, t.memo].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     return true;
   });
 
@@ -685,11 +692,18 @@ export default function TransactionsPage() {
       />
 
       <div style={{ padding: '0 14px 8px' }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10 }}>
-            <span style={{ color: T.textMute, fontSize: 13 }}>⌕</span>
-            <span style={{ flex: 1, fontSize: 13, color: T.textMute }}>搜索店铺、来源或备注</span>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: T.surface, border: `1px solid ${q ? T.accent : T.border}`, borderRadius: 10 }}>
+          <span style={{ color: T.textMute, fontSize: 13 }}>⌕</span>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜索店铺名称、品目或备注"
+            style={{ flex: 1, fontSize: 13, color: T.ink, border: 'none', outline: 'none', background: 'transparent', padding: 0 }}
+          />
+          {q && (
+            <span onClick={() => setSearchQuery('')}
+              style={{ fontSize: 16, color: T.textDim, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}>×</span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 4, marginTop: 8, padding: 3, background: T.bgSubtle, borderRadius: 8 }}>
           {TYPE_FILTERS.map((f) => {
@@ -756,7 +770,12 @@ export default function TransactionsPage() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 14px 80px' }}>
         {loading && <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>加载中…</div>}
-        {!loading && filteredPending.length > 0 && (
+        {!loading && q && (
+          <div style={{ padding: '0 4px 8px', fontSize: 12, color: T.textMute }}>
+            找到 {filtered.length} 条记录
+          </div>
+        )}
+        {!loading && !q && filteredPending.length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px 6px' }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: T.textSoft }}>本月待执行</span>
@@ -779,7 +798,7 @@ export default function TransactionsPage() {
             </Card>
           </div>
         )}
-        {!loading && ccPending.length > 0 && (
+        {!loading && !q && ccPending.length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ padding: '0 4px 6px' }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: T.warning }}>信用卡待还款</span>
@@ -836,14 +855,14 @@ export default function TransactionsPage() {
             </Card>
           </div>
         )}
-        {!loading && sortedFiltered.length === 0 && filteredPending.length === 0 && ccPending.length === 0 && (
+        {!loading && sortedFiltered.length === 0 && (q || (filteredPending.length === 0 && ccPending.length === 0)) && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>
-            {month === currentMonth ? '暂无记录' : '该月暂无记录'}
+            {q ? '没有匹配的记录' : month === currentMonth ? '暂无记录' : '该月暂无记录'}
           </div>
         )}
 
-        {/* Amount sort: flat list */}
-        {!loading && isAmountSort && sortedFiltered.length > 0 && (
+        {/* Search or amount sort: flat list */}
+        {!loading && (q || isAmountSort) && sortedFiltered.length > 0 && (
           <Card pad={4}>
             {sortedFiltered.map((tx, i) => (
               <div key={tx.id} style={{ padding: '0 8px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, background: tx.transactionType === 'transfer' ? `${T.transferSoft}40` : 'transparent' }}>
@@ -863,7 +882,7 @@ export default function TransactionsPage() {
         )}
 
         {/* Time sort: date-grouped */}
-        {!loading && !isAmountSort && dates.map((d) => {
+        {!loading && !q && !isAmountSort && dates.map((d) => {
           const { md, wd } = fmtDay(d);
           const dayEx = byDate[d]
             .filter((t) => t.transactionType === 'expense')
