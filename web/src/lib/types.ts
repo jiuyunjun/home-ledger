@@ -83,6 +83,9 @@ export interface ApiTransaction {
   paymentMethodId?: string;
   fromAccountId?: string;
   toAccountId?: string;
+  convertedAmount?: number;
+  convertedCurrency?: Currency;
+  exchangeRate?: string;
   merchantName?: string;
   title?: string;
   memo?: string;

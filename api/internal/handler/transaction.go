@@ -171,6 +171,8 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 		CategoryID      *string `json:"categoryId"`
 		FromAccountID   *string `json:"fromAccountId"`
 		ToAccountID     *string `json:"toAccountId"`
+		ConvertedAmount *int64  `json:"convertedAmount"`
+		ExchangeRate    *string `json:"exchangeRate"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAppError(w, domain.NewValidationError("invalid request body", ""))
@@ -205,6 +207,12 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ToAccountID != nil {
 		updates["toAccountId"] = *req.ToAccountID
+	}
+	if req.ConvertedAmount != nil {
+		updates["convertedAmount"] = *req.ConvertedAmount
+	}
+	if req.ExchangeRate != nil {
+		updates["exchangeRate"] = *req.ExchangeRate
 	}
 
 	if err := repo.UpdateTransaction(r.Context(), txID, updates); err != nil {

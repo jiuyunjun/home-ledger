@@ -124,7 +124,7 @@ function fmtDay(dateStr: string) {
 }
 
 function Backdrop({ onClose }: { onClose: () => void }) {
-  return <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 98, background: 'rgba(0,0,0,0.32)' }} />;
+  return <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(0,0,0,0.32)' }} />;
 }
 
 function CategoryPicker({ currentId, onSelect, onClose }: {
@@ -134,8 +134,8 @@ function CategoryPicker({ currentId, onSelect, onClose }: {
   const cats = data.expenseCategories();
   return (
     <>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.32)' }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 101, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.32)' }} />
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 390, zIndex: 101, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>选择分类</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
           {cats.map((cat) => {
@@ -169,6 +169,8 @@ function EditSheet({ tx, onSave, onClose }: {
   const [memo, setMemo] = useState(tx.memo ?? '');
   const [categoryId, setCategoryId] = useState(tx.categoryId ?? '');
   const [amountStr, setAmountStr] = useState(String(tx.amount));
+  const [convertedAmountStr, setConvertedAmountStr] = useState(tx.convertedAmount ? String(tx.convertedAmount) : '');
+  const [exchangeRateStr, setExchangeRateStr] = useState(tx.exchangeRate ?? '');
   const [fromPmId, setFromPmId] = useState(tx.fromAccountId ?? '');
   const [toPmId, setToPmId] = useState(tx.toAccountId ?? '');
   const [showCatPicker, setShowCatPicker] = useState(false);
@@ -189,6 +191,10 @@ function EditSheet({ tx, onSave, onClose }: {
   const { mark, tint } = catDisplay(cat?.name ?? '');
   const activePms = data.paymentMethods.filter((p) => p.isActive);
 
+  const fromPm = data.paymentMethod(fromPmId);
+  const toPm = data.paymentMethod(toPmId);
+  const isCross = isTransfer && fromPm && toPm && fromPm.currency !== toPm.currency;
+
   async function handleSave() {
     setSaving(true);
     const patch: Record<string, unknown> = {};
@@ -199,6 +205,11 @@ function EditSheet({ tx, onSave, onClose }: {
       if (amt > 0 && amt !== tx.amount) patch.amount = amt;
       if (fromPmId && fromPmId !== (tx.fromAccountId ?? '')) patch.fromAccountId = fromPmId;
       if (toPmId && toPmId !== (tx.toAccountId ?? '')) patch.toAccountId = toPmId;
+      if (isCross) {
+        const cAmt = Math.round(parseFloat(convertedAmountStr) || 0);
+        if (cAmt > 0 && cAmt !== (tx.convertedAmount ?? 0)) patch.convertedAmount = cAmt;
+        if (exchangeRateStr && exchangeRateStr !== (tx.exchangeRate ?? '')) patch.exchangeRate = exchangeRateStr;
+      }
     } else {
       if (title !== (tx.title ?? '')) patch.title = title;
       if (merchantName !== (tx.merchantName ?? '')) patch.merchantName = merchantName;
@@ -219,7 +230,7 @@ function EditSheet({ tx, onSave, onClose }: {
         <CategoryPicker currentId={categoryId} onSelect={setCategoryId} onClose={() => setShowCatPicker(false)} />
       )}
       <Backdrop onClose={onClose} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 390, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)', maxHeight: '90dvh', overflowY: 'auto' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 18 }}>编辑记录</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {isTransfer ? (
@@ -247,11 +258,29 @@ function EditSheet({ tx, onSave, onClose }: {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>金额</label>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>转出金额（{fromPm?.currency ?? tx.currency}）</label>
                 <input type="text" inputMode="decimal" value={amountStr}
                   onChange={e => setAmountStr(e.target.value.replace(/[^\d.]/g, ''))}
                   style={{ ...inputStyle, fontFamily: NUM_FONT, fontSize: 18, fontWeight: 600 }} />
               </div>
+              {isCross && (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>汇率（1 {fromPm?.currency} = ? {toPm?.currency}）</label>
+                    <input type="text" inputMode="decimal" value={exchangeRateStr}
+                      onChange={e => setExchangeRateStr(e.target.value.replace(/[^\d.]/g, ''))}
+                      placeholder="汇率"
+                      style={{ ...inputStyle, fontFamily: NUM_FONT }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>转入金额（{toPm?.currency}）</label>
+                    <input type="text" inputMode="decimal" value={convertedAmountStr}
+                      onChange={e => setConvertedAmountStr(e.target.value.replace(/[^\d.]/g, ''))}
+                      placeholder="0"
+                      style={{ ...inputStyle, fontFamily: NUM_FONT, fontSize: 18, fontWeight: 600, color: T.transfer }} />
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <>
