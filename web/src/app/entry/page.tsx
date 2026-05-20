@@ -10,7 +10,7 @@ import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
 import { apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
-import { ACCT_KIND } from '@/lib/data';
+import { PM_TYPE_COLOR } from '@/lib/data';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import type { CreateTransactionRequest } from '@/lib/types';
 import Link from 'next/link';
@@ -67,10 +67,10 @@ function CatChip({ name, selected, onSelect }: { name: string; selected: boolean
 }
 
 function PmChip({ name, type, selected, onSelect }: { name: string; type: string; selected: boolean; onSelect: () => void }) {
-  const k = ACCT_KIND[type as keyof typeof ACCT_KIND] ?? { color: '#ccc', label: '?' };
+  const dotColor = PM_TYPE_COLOR[type] ?? '#8C8C8C';
   return (
     <div onClick={onSelect} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 999, background: selected ? T.ink : T.surface, border: `1px solid ${selected ? T.ink : T.border}`, color: selected ? '#fff' : T.text, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-      <span style={{ width: 5, height: 5, borderRadius: 1, background: selected ? '#fff' : k.color }} />
+      <span style={{ width: 6, height: 6, borderRadius: 3, background: selected ? '#fff' : dotColor, flexShrink: 0 }} />
       {name}
     </div>
   );

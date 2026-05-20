@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
+import { PM_TYPE_COLOR } from '@/lib/data';
 import type { AccountType, Actor, Category, PaymentMethod } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import { useRouter } from 'next/navigation';
@@ -49,10 +50,6 @@ function FieldRow({ label, value, onChange, placeholder }: { label: string; valu
 const ACCT_TYPE_LABEL: Record<AccountType, string> = {
   cash: 'CASH', paypay: 'PAY', credit_card: 'CARD',
   bank_account: 'BANK', cny_rmb: 'CNY', other: 'OTH',
-};
-const ACCT_TYPE_COLOR: Record<AccountType, string> = {
-  cash: '#7A9E7E', paypay: '#D3302F', credit_card: '#3D7EBF',
-  bank_account: '#6A5E9E', cny_rmb: '#B5612A', other: '#8C8C8C',
 };
 
 // ─── Edit actor sheet ─────────────────────────────────────────────────────────
@@ -419,11 +416,14 @@ export default function SettingsPage() {
   const [addCatType, setAddCatType] = useState<'expense' | 'income' | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
+  const [pmBalancesLoading, setPmBalancesLoading] = useState(true);
 
   useEffect(() => {
+    setPmBalancesLoading(true);
     apiGet<Record<string, number>>('/api/payment-methods/balances')
       .then(setPmBalances)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPmBalancesLoading(false));
   // Re-fetch whenever payment methods list changes (e.g. after data.refresh)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.paymentMethods]);
@@ -439,6 +439,10 @@ export default function SettingsPage() {
 
   return (
     <PhoneScreen>
+      <style>{`
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        .skel { background: linear-gradient(90deg,#f0ece6 25%,#e8e2da 50%,#f0ece6 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
+      `}</style>
       {editActor && <EditActorSheet actor={editActor} onClose={() => setEditActor(null)} onSaved={data.refresh} />}
       {editPm && <EditPaymentMethodSheet pm={editPm} onClose={() => setEditPm(null)} onSaved={data.refresh} />}
       {showAddPm && <AddPaymentMethodSheet onClose={() => setShowAddPm(false)} onSaved={data.refresh} />}
@@ -497,7 +501,7 @@ export default function SettingsPage() {
             <div style={{ padding: '16px 14px', fontSize: 13, color: T.textMute, textAlign: 'center' }}>暂无支付方式</div>
           ) : (
             data.paymentMethods.map((pm, i) => {
-              const color = ACCT_TYPE_COLOR[pm.type];
+              const color = PM_TYPE_COLOR[pm.type] ?? '#8C8C8C';
               const label = ACCT_TYPE_LABEL[pm.type];
               const isCreditCard = pm.type === 'credit_card';
               const balance = pmBalances[pm.id];
@@ -517,7 +521,12 @@ export default function SettingsPage() {
                       {!pm.isActive ? '已停用' : '基于交易记录'}
                     </div>
                   </div>
-                  {hasBalance ? (
+                  {pmBalancesLoading ? (
+                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
+                      <div className="skel" style={{ height: 10, width: 28 }} />
+                      <div className="skel" style={{ height: 16, width: 52 }} />
+                    </div>
+                  ) : hasBalance ? (
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 10, color: isCreditCard ? T.warning : T.textMute, fontWeight: 500 }}>
                         {isCreditCard ? '待还' : '余额'}

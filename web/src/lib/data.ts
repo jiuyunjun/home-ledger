@@ -108,6 +108,16 @@ export const ACCT_KIND: Record<AccountKind, { label: string; color: string }> = 
   bank:   { label: '銀',   color: T.transfer },
 };
 
+// Canonical icon/dot colors for each AccountType (matches settings page icons)
+export const PM_TYPE_COLOR: Record<string, string> = {
+  cash:         '#7A9E7E',
+  paypay:       '#D3302F',
+  credit_card:  '#3D7EBF',
+  bank_account: '#6A5E9E',
+  cny_rmb:      '#B5612A',
+  other:        '#8C8C8C',
+};
+
 export const acctById = (id: string): Account => ACCOUNTS.find((a) => a.id === id) ?? ACCOUNTS[0];
 
 // ── Transactions ──────────────────────────────────────────────────────────────
