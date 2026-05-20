@@ -49,7 +49,7 @@ export interface PaymentMethod {
   householdId: string;
   name: string;
   type: AccountType;
-  accountId: string;
+  currency: Currency;
   ownerActorId: string;
   billingDay?: number;
   settlementDay?: number;

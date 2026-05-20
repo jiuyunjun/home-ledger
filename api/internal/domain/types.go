@@ -134,7 +134,7 @@ type PaymentMethod struct {
 	HouseholdID   string      `json:"householdId" firestore:"householdId"`
 	Name          string      `json:"name" firestore:"name"`
 	Type          AccountType `json:"type" firestore:"type"`
-	AccountID     string      `json:"accountId" firestore:"accountId"`
+	Currency      Currency    `json:"currency" firestore:"currency"`
 	OwnerActorID  string      `json:"ownerActorId" firestore:"ownerActorId"`
 	BillingDay    int         `json:"billingDay,omitempty" firestore:"billingDay,omitempty"`
 	SettlementDay int         `json:"settlementDay,omitempty" firestore:"settlementDay,omitempty"`

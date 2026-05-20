@@ -180,7 +180,7 @@ func seedAccountsAndPaymentMethods(ctx context.Context, householdID, ownerActorI
 			HouseholdID:  householdID,
 			Name:         a.Name,
 			Type:         a.Type,
-			AccountID:    a.ID,
+			Currency:     a.Currency,
 			OwnerActorID: ownerActorID,
 			IsActive:     true,
 			CreatedAt:    now.Add(time.Duration(i) * time.Millisecond),

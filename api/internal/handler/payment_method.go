@@ -44,7 +44,7 @@ func createPaymentMethod(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name          string             `json:"name"`
 		Type          domain.AccountType `json:"type"`
-		AccountID     string             `json:"accountId"`
+		Currency      domain.Currency    `json:"currency"`
 		OwnerActorID  string             `json:"ownerActorId"`
 		BillingDay    int                `json:"billingDay"`
 		SettlementDay int                `json:"settlementDay"`
@@ -53,6 +53,9 @@ func createPaymentMethod(w http.ResponseWriter, r *http.Request) {
 		writeAppError(w, domain.NewValidationError("name is required", "name"))
 		return
 	}
+	if req.Currency == "" {
+		req.Currency = domain.CurrencyJPY
+	}
 
 	now := time.Now().UTC()
 	pm := &domain.PaymentMethod{
@@ -60,7 +63,7 @@ func createPaymentMethod(w http.ResponseWriter, r *http.Request) {
 		HouseholdID:   claims.HouseholdID,
 		Name:          req.Name,
 		Type:          req.Type,
-		AccountID:     req.AccountID,
+		Currency:      req.Currency,
 		OwnerActorID:  req.OwnerActorID,
 		BillingDay:    req.BillingDay,
 		SettlementDay: req.SettlementDay,
@@ -135,12 +138,9 @@ func getPaymentMethodBalances(w http.ResponseWriter, r *http.Request) {
 		writeAppError(w, domain.NewInternalError(err))
 		return
 	}
-	// accountId → pmId for transfer delta lookup
-	acctToPM := make(map[string]string, len(pms))
+	pmSet := make(map[string]struct{}, len(pms))
 	for _, pm := range pms {
-		if pm.AccountID != "" {
-			acctToPM[pm.AccountID] = pm.ID
-		}
+		pmSet[pm.ID] = struct{}{}
 	}
 
 	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
@@ -161,15 +161,16 @@ func getPaymentMethodBalances(w http.ResponseWriter, r *http.Request) {
 				balances[tx.PaymentMethodID] -= tx.Amount
 			}
 		case domain.TxTransfer:
-			if pmID, ok := acctToPM[tx.FromAccountID]; ok {
-				balances[pmID] -= tx.Amount
+			// fromAccountId/toAccountId now store PM IDs directly
+			if _, ok := pmSet[tx.FromAccountID]; ok {
+				balances[tx.FromAccountID] -= tx.Amount
 			}
-			if pmID, ok := acctToPM[tx.ToAccountID]; ok {
+			if _, ok := pmSet[tx.ToAccountID]; ok {
 				credit := tx.Amount
 				if tx.ConvertedAmount > 0 {
 					credit = tx.ConvertedAmount
 				}
-				balances[pmID] += credit
+				balances[tx.ToAccountID] += credit
 			}
 		}
 	}

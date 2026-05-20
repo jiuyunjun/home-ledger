@@ -251,8 +251,8 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
   const pad = '10px 4px';
 
   if (tx.transactionType === 'transfer') {
-    const from = data.account(tx.fromAccountId ?? '');
-    const to = data.account(tx.toAccountId ?? '');
+    const from = data.paymentMethod(tx.fromAccountId ?? '');
+    const to = data.paymentMethod(tx.toAccountId ?? '');
     return (
       <div>
         <div onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: pad, cursor: 'pointer' }}>

@@ -96,11 +96,16 @@ const PM_TYPES: { value: AccountType; label: string }[] = [
   { value: 'other',        label: '其他' },
 ];
 
+const CURRENCIES: { value: 'JPY' | 'CNY'; label: string }[] = [
+  { value: 'JPY', label: '日元 JPY' },
+  { value: 'CNY', label: '人民币 CNY' },
+];
+
 function AddPaymentMethodSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const data = useData();
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('cash');
-  const [accountId, setAccountId] = useState('');
+  const [currency, setCurrency] = useState<'JPY' | 'CNY'>('JPY');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -110,7 +115,7 @@ function AddPaymentMethodSheet({ onClose, onSaved }: { onClose: () => void; onSa
     setError('');
     try {
       const actorId = data.me?.actorId ?? '';
-      await apiPost('/api/payment-methods', { name: name.trim(), type, accountId, ownerActorId: actorId, isActive: true });
+      await apiPost('/api/payment-methods', { name: name.trim(), type, currency, ownerActorId: actorId, isActive: true });
       onSaved();
       onClose();
     } catch (e) {
@@ -137,23 +142,17 @@ function AddPaymentMethodSheet({ onClose, onSaved }: { onClose: () => void; onSa
           </div>
         </div>
 
-        {data.accounts.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, color: T.textMute, marginBottom: 6 }}>关联账户（可选）</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div onClick={() => setAccountId('')}
-                style={{ padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${accountId === '' ? T.accent : T.border}`, background: accountId === '' ? T.accentSoft : T.surface, fontSize: 13, color: T.textSoft, cursor: 'pointer' }}>
-                不关联
+        <div>
+          <div style={{ fontSize: 11, color: T.textMute, marginBottom: 6 }}>货币</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {CURRENCIES.map((c) => (
+              <div key={c.value} onClick={() => setCurrency(c.value)}
+                style={{ padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${currency === c.value ? T.accent : T.border}`, background: currency === c.value ? T.accentSoft : T.surface, fontSize: 12, color: currency === c.value ? T.accent : T.textSoft, cursor: 'pointer', fontWeight: 500 }}>
+                {c.label}
               </div>
-              {data.accounts.filter((a) => a.isActive).map((a) => (
-                <div key={a.id} onClick={() => setAccountId(a.id)}
-                  style={{ padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${accountId === a.id ? T.accent : T.border}`, background: accountId === a.id ? T.accentSoft : T.surface, fontSize: 13, color: T.ink, cursor: 'pointer' }}>
-                  {a.name}
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        )}
+        </div>
 
         {error && <div style={{ fontSize: 12, color: T.danger, textAlign: 'center' }}>{error}</div>}
         <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving}>

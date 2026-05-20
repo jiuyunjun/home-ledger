@@ -100,7 +100,7 @@ export default function DashboardPage() {
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [usageItems, setUsageItems] = useState<BudgetUsageItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [accountBalances, setAccountBalances] = useState<Record<string, number>>({});
+  const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
@@ -108,11 +108,11 @@ export default function DashboardPage() {
       const [list, usageResp, balances] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?month=${m}`),
         apiGet<{ month: string; items: BudgetUsageItem[] }>(`/api/budgets/usage?month=${m}`),
-        apiGet<Record<string, number>>('/api/accounts/balances'),
+        apiGet<Record<string, number>>('/api/payment-methods/balances'),
       ]);
       setTxs(list);
       setUsageItems(usageResp.items);
-      setAccountBalances(balances);
+      setPmBalances(balances);
     } catch (e) {
       console.error(e);
     } finally {
@@ -157,8 +157,7 @@ export default function DashboardPage() {
   // Recent transactions
   const recent = filteredTxs.slice(0, 6);
 
-  // Active accounts (non-card first)
-  const activeAccounts = data.accounts.filter((a) => a.isActive).slice(0, 5);
+  const activePms = data.paymentMethods.filter((p) => p.isActive).slice(0, 5);
 
   return (
     <PhoneScreen>
@@ -317,20 +316,20 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Account balances */}
-            {activeAccounts.length > 0 && (
+            {/* Payment method balances */}
+            {activePms.length > 0 && (
               <>
                 <SectionLabel right={<Link href="/settings" style={{ color: T.textMute, textDecoration: 'none' }}>管理 →</Link>}>账户余额</SectionLabel>
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 0 10px', marginBottom: 4 }}>
-                  {activeAccounts.map((a) => (
-                    <div key={a.id} style={{ flex: '0 0 auto', minWidth: 124, background: a.currency === 'CNY' ? '#FAF4EE' : T.surface, border: `1px solid ${a.currency === 'CNY' ? '#E8D9C5' : T.border}`, borderRadius: 12, padding: '10px 12px' }}>
+                  {activePms.map((p) => (
+                    <div key={p.id} style={{ flex: '0 0 auto', minWidth: 124, background: p.currency === 'CNY' ? '#FAF4EE' : T.surface, border: `1px solid ${p.currency === 'CNY' ? '#E8D9C5' : T.border}`, borderRadius: 12, padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, color: T.textSoft, fontWeight: 500, whiteSpace: 'nowrap' }}>{a.name}</span>
-                        {a.currency !== 'JPY' && (
-                          <span style={{ marginLeft: 'auto', fontSize: 8, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>{a.currency}</span>
+                        <span style={{ fontSize: 10, color: T.textSoft, fontWeight: 500, whiteSpace: 'nowrap' }}>{p.name}</span>
+                        {p.currency !== 'JPY' && (
+                          <span style={{ marginLeft: 'auto', fontSize: 8, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>{p.currency}</span>
                         )}
                       </div>
-                      <Amount value={accountBalances[a.id] ?? a.currentBalance} size={14} weight={600} currency={a.currency} showCurrency={false} />
+                      <Amount value={pmBalances[p.id] ?? 0} size={14} weight={600} currency={p.currency} showCurrency={false} />
                     </div>
                   ))}
                 </div>

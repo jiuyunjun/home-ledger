@@ -22,59 +22,8 @@ func getAccountBalances(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := repo.ListAccounts(r.Context(), claims.HouseholdID)
-	if err != nil {
-		writeAppError(w, domain.NewInternalError(err))
-		return
-	}
-
-	pms, err := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
-	if err != nil {
-		writeAppError(w, domain.NewInternalError(err))
-		return
-	}
-
-	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
-	if err != nil {
-		writeAppError(w, domain.NewInternalError(err))
-		return
-	}
-
-	pmToAcct := make(map[string]string, len(pms))
-	for _, pm := range pms {
-		pmToAcct[pm.ID] = pm.AccountID
-	}
-
-	delta := make(map[string]int64)
-	for _, tx := range txs {
-		switch tx.TransactionType {
-		case domain.TxExpense:
-			if acctID := pmToAcct[tx.PaymentMethodID]; acctID != "" {
-				delta[acctID] -= tx.Amount
-			}
-		case domain.TxIncome:
-			if acctID := pmToAcct[tx.PaymentMethodID]; acctID != "" {
-				delta[acctID] += tx.Amount
-			}
-		case domain.TxTransfer:
-			if tx.FromAccountID != "" {
-				delta[tx.FromAccountID] -= tx.Amount
-			}
-			if tx.ToAccountID != "" {
-				credit := tx.Amount
-				if tx.ConvertedAmount > 0 {
-					credit = tx.ConvertedAmount
-				}
-				delta[tx.ToAccountID] += credit
-			}
-		}
-	}
-
-	result := make(map[string]int64, len(accounts))
-	for _, a := range accounts {
-		result[a.ID] = a.OpeningBalance + delta[a.ID]
-	}
-	writeJSON(w, http.StatusOK, result)
+	// Accounts are deprecated in favour of PaymentMethods; return empty map.
+	writeJSON(w, http.StatusOK, map[string]int64{})
 }
 
 func listAccounts(w http.ResponseWriter, r *http.Request) {

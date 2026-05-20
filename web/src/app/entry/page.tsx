@@ -230,9 +230,9 @@ function TransferForm() {
   const data = useData();
   const router = useRouter();
 
-  const accounts = data.accounts.filter((a) => a.isActive);
-  const [fromAcctId, setFromAcctId] = useState('');
-  const [toAcctId, setToAcctId] = useState('');
+  const pms = data.paymentMethods.filter((p) => p.isActive);
+  const [fromPmId, setFromPmId] = useState('');
+  const [toPmId, setToPmId] = useState('');
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
   const [rateStr, setRateStr] = useState('');
@@ -241,17 +241,16 @@ function TransferForm() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const defaultFrom = fromAcctId || accounts[0]?.id || '';
-  const defaultTo = toAcctId || accounts[1]?.id || '';
-  const fromAcct = data.account(defaultFrom);
-  const toAcct = data.account(defaultTo);
-  const fromCur = (fromAcct?.currency ?? 'JPY') as 'JPY' | 'CNY';
-  const toCur = (toAcct?.currency ?? 'JPY') as 'JPY' | 'CNY';
+  const defaultFrom = fromPmId || pms[0]?.id || '';
+  const defaultTo = toPmId || pms[1]?.id || '';
+  const fromPm = data.paymentMethod(defaultFrom);
+  const toPm = data.paymentMethod(defaultTo);
+  const fromCur = (fromPm?.currency ?? 'JPY') as 'JPY' | 'CNY';
+  const toCur = (toPm?.currency ?? 'JPY') as 'JPY' | 'CNY';
   const isCross = fromCur !== toCur;
-  const isSameAcct = defaultFrom === defaultTo;
+  const isSamePm = defaultFrom === defaultTo;
   const fromAmt = Math.round(parseFloat(fromAmount) || 0);
   const toAmt = Math.round(parseFloat(toAmount) || 0);
-  const today = new Date().toISOString().slice(0, 10);
 
   // Auto-fetch rate when cross-currency pair changes
   useEffect(() => {
@@ -270,7 +269,6 @@ function TransferForm() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromCur, toCur, isCross]);
 
-  // Recalculate toAmount when fromAmount or rateStr changes (only if user hasn't manually edited toAmount)
   function handleFromAmountChange(v: string) {
     setFromAmount(v.replace(/[^\d.]/g, ''));
     if (isCross && rateStr) {
@@ -293,7 +291,7 @@ function TransferForm() {
   }
 
   async function handleSave() {
-    if (fromAmt <= 0 || saving || isSameAcct) return;
+    if (fromAmt <= 0 || saving || isSamePm) return;
     setSaving(true);
     try {
       const req: CreateTransactionRequest = {
@@ -322,31 +320,31 @@ function TransferForm() {
   return (
     <>
       <div style={{ padding: '14px 0' }}>
-        <AcctCard label="转出账户" name={fromAcct?.name ?? '—'} currency={fromCur} amount={fromAmt} />
+        <AcctCard label="转出账户" name={fromPm?.name ?? '—'} currency={fromCur} amount={fromAmt} />
         <div style={{ textAlign: 'center', margin: '4px 0' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 15, background: T.surface, border: `1px solid ${T.border}`, color: T.transfer, fontSize: 14, fontWeight: 600 }}>↓</div>
         </div>
-        <AcctCard label="转入账户" name={toAcct?.name ?? '—'} currency={toCur} amount={isCross ? toAmt : fromAmt} highlight />
+        <AcctCard label="转入账户" name={toPm?.name ?? '—'} currency={toCur} amount={isCross ? toAmt : fromAmt} highlight />
       </div>
 
-      {accounts.length > 1 && (
+      {pms.length > 1 && (
         <Row label="转出账户">
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {accounts.map((a) => (
-              <div key={a.id} onClick={() => setFromAcctId(a.id)} style={{ padding: '6px 12px', borderRadius: 999, background: defaultFrom === a.id ? T.ink : T.surface, border: `1px solid ${defaultFrom === a.id ? T.ink : T.border}`, color: defaultFrom === a.id ? '#fff' : T.text, fontSize: 12, cursor: 'pointer' }}>
-                {a.name}
+            {pms.map((p) => (
+              <div key={p.id} onClick={() => setFromPmId(p.id)} style={{ padding: '6px 12px', borderRadius: 999, background: defaultFrom === p.id ? T.ink : T.surface, border: `1px solid ${defaultFrom === p.id ? T.ink : T.border}`, color: defaultFrom === p.id ? '#fff' : T.text, fontSize: 12, cursor: 'pointer' }}>
+                {p.name}
               </div>
             ))}
           </div>
         </Row>
       )}
 
-      {accounts.length > 1 && (
+      {pms.length > 1 && (
         <Row label="转入账户">
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {accounts.map((a) => (
-              <div key={a.id} onClick={() => setToAcctId(a.id)} style={{ padding: '6px 12px', borderRadius: 999, background: defaultTo === a.id ? T.transfer : T.surface, border: `1px solid ${defaultTo === a.id ? T.transfer : T.border}`, color: defaultTo === a.id ? '#fff' : T.text, fontSize: 12, cursor: 'pointer' }}>
-                {a.name}
+            {pms.map((p) => (
+              <div key={p.id} onClick={() => setToPmId(p.id)} style={{ padding: '6px 12px', borderRadius: 999, background: defaultTo === p.id ? T.transfer : T.surface, border: `1px solid ${defaultTo === p.id ? T.transfer : T.border}`, color: defaultTo === p.id ? '#fff' : T.text, fontSize: 12, cursor: 'pointer' }}>
+                {p.name}
               </div>
             ))}
           </div>
@@ -407,7 +405,7 @@ function TransferForm() {
         />
       </Row>
 
-      {isSameAcct && (
+      {isSamePm && (
         <div style={{ padding: 10, background: '#FEF3F2', borderRadius: 8, fontSize: 12, color: T.danger }}>
           转出和转入账户不能相同
         </div>
@@ -419,7 +417,7 @@ function TransferForm() {
 
       <div style={{ padding: '10px 0 18px', display: 'flex', gap: 8, marginTop: 8 }}>
         <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={() => router.back()}>取消</Button>
-        <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave} disabled={saving || isSameAcct}>
+        <Button variant="primary" size="lg" style={{ flex: 2, background: T.transfer }} onClick={handleSave} disabled={saving || isSamePm}>
           {saving ? '保存中…' : '保存转账'}
         </Button>
       </div>
