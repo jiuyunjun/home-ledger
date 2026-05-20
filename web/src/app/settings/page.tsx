@@ -168,13 +168,21 @@ function AddPaymentMethodSheet({ onClose, onSaved }: { onClose: () => void; onSa
 function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(pm.name);
   const [active, setActive] = useState(pm.isActive);
+  const [billingDay, setBillingDay] = useState(pm.billingDay ? String(pm.billingDay) : '');
+  const [settlementDay, setSettlementDay] = useState(pm.settlementDay ? String(pm.settlementDay) : '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isCreditCard = pm.type === 'credit_card';
 
   async function handleSave() {
     setSaving(true);
     try {
-      await apiPatch(`/api/payment-methods/${pm.id}`, { name: name.trim(), isActive: active });
+      const patch: Record<string, unknown> = { name: name.trim(), isActive: active };
+      if (isCreditCard) {
+        patch.billingDay = parseInt(billingDay) || 0;
+        patch.settlementDay = parseInt(settlementDay) || 0;
+      }
+      await apiPatch(`/api/payment-methods/${pm.id}`, patch);
       onSaved();
       onClose();
     } finally {
@@ -198,6 +206,23 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
     <Sheet title="编辑支付方式" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <FieldRow label="名称" value={name} onChange={setName} />
+        {isCreditCard && (
+          <>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: `1px solid ${T.border}`, borderRadius: 10 }}>
+                <span style={{ fontSize: 11, color: T.textSoft, whiteSpace: 'nowrap' }}>账单日</span>
+                <input type="number" min="1" max="31" value={billingDay} onChange={e => setBillingDay(e.target.value)} placeholder="如 31"
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: T.ink, background: 'transparent', width: 0 }} />
+              </div>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: `1px solid ${T.border}`, borderRadius: 10 }}>
+                <span style={{ fontSize: 11, color: T.textSoft, whiteSpace: 'nowrap' }}>还款日</span>
+                <input type="number" min="1" max="31" value={settlementDay} onChange={e => setSettlementDay(e.target.value)} placeholder="如 27"
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: T.ink, background: 'transparent', width: 0 }} />
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: T.textMute, marginTop: -6 }}>账单日：每月结账日（如末日填 31）· 还款日：次月还款日</div>
+          </>
+        )}
         <div onClick={() => setActive((v) => !v)}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', border: `1px solid ${T.border}`, borderRadius: 10, cursor: 'pointer' }}>
           <span style={{ fontSize: 13, color: T.ink }}>启用</span>

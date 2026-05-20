@@ -367,9 +367,11 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
 
 export default function TransactionsPage() {
   const { state } = useApp();
+  const data = useData();
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [pendingRules, setPendingRules] = useState<PendingRule[]>([]);
+  const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -384,11 +386,13 @@ export default function TransactionsPage() {
     const params = new URLSearchParams({ month });
     if (state.currentRole) params.set('actorId', state.currentRole);
     try {
-      const [txData, rules] = await Promise.all([
+      const [txData, rules, balances] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?${params}`),
         apiGet<PendingRule[]>('/api/recurring-rules'),
+        apiGet<Record<string, number>>('/api/payment-methods/balances'),
       ]);
       setTxs(txData);
+      setPmBalances(balances);
       const todayDayOfMonth = new Date().getDate();
       setPendingRules(
         rules.filter((r) => r.isActive && r.dayOfMonth >= todayDayOfMonth)
@@ -438,6 +442,19 @@ export default function TransactionsPage() {
   const filteredPending = typeFilter === 'transfer' ? [] : pendingRules.filter((r) =>
     typeFilter === 'all' || r.transactionType === typeFilter
   );
+
+  // Credit card pending payments: only show when viewing expense or all
+  const todayDay = new Date().getDate();
+  const ccPending = (typeFilter === 'all' || typeFilter === 'expense')
+    ? data.paymentMethods.filter((p) => p.type === 'credit_card' && p.isActive && p.settlementDay && (pmBalances[p.id] ?? 0) < 0)
+        .map((p) => {
+          const amount = Math.abs(pmBalances[p.id]!);
+          const sd = p.settlementDay!;
+          const d = new Date();
+          const settleMonth = sd >= todayDay ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : `${d.getFullYear()}-${String(d.getMonth() + 2).padStart(2, '0')}`;
+          return { id: p.id, name: p.name, amount, settlementDay: sd, settleMonth };
+        })
+    : [];
 
   const byDate: Record<string, ApiTransaction[]> = {};
   filtered.forEach((t) => { (byDate[t.transactionDate] ??= []).push(t); });
@@ -489,7 +506,34 @@ export default function TransactionsPage() {
             </Card>
           </div>
         )}
-        {!loading && dates.length === 0 && filteredPending.length === 0 && (
+        {!loading && ccPending.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px 6px' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: T.warning }}>信用卡还款</span>
+            </div>
+            <Card pad={4} style={{ border: `1px dashed ${T.warningSoft}` }}>
+              {ccPending.map((cc, i) => {
+                const [y, m] = cc.settleMonth.split('-').map(Number);
+                const monthLabel = `${m}月${cc.settlementDay}日`;
+                return (
+                  <div key={cc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: T.warningSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: T.warning, flexShrink: 0, border: `1.5px dashed ${T.warning}40` }}>💳</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{cc.name} 还款</div>
+                      <div style={{ fontSize: 11, color: T.textMute, marginTop: 2 }}>
+                        <span style={{ background: T.warningSoft, color: T.warning, borderRadius: 4, padding: '1px 5px', fontWeight: 600, marginRight: 6 }}>待还</span>
+                        {y !== new Date().getFullYear() || m !== new Date().getMonth() + 1
+                          ? `${m}月` : ''}{monthLabel}还款
+                      </div>
+                    </div>
+                    <Amount value={cc.amount} size={14} weight={600} color={T.warning} />
+                  </div>
+                );
+              })}
+            </Card>
+          </div>
+        )}
+        {!loading && dates.length === 0 && filteredPending.length === 0 && ccPending.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>暂无记录</div>
         )}
         {dates.map((d) => {

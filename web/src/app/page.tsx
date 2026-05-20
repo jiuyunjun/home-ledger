@@ -164,6 +164,7 @@ export default function DashboardPage() {
 
   // Projected month-end balance (JPY only)
   const todayDayOfMonth = new Date().getDate();
+  // For projected balance: use actual balances (credit card balance is already negative = debt)
   const jpyPmTotal = data.paymentMethods
     .filter((p) => p.isActive && (p.currency === 'JPY' || !p.currency))
     .reduce((s, p) => s + (pmBalances[p.id] ?? 0), 0);
@@ -336,17 +337,25 @@ export default function DashboardPage() {
               <>
                 <SectionLabel right={<Link href="/settings" style={{ color: T.textMute, textDecoration: 'none' }}>管理 →</Link>}>账户余额</SectionLabel>
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 0 10px', marginBottom: 4 }}>
-                  {activePms.map((p) => (
-                    <div key={p.id} style={{ flex: '0 0 auto', minWidth: 124, background: p.currency === 'CNY' ? '#FAF4EE' : T.surface, border: `1px solid ${p.currency === 'CNY' ? '#E8D9C5' : T.border}`, borderRadius: 12, padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, color: T.textSoft, fontWeight: 500, whiteSpace: 'nowrap' }}>{p.name}</span>
-                        {p.currency !== 'JPY' && (
-                          <span style={{ marginLeft: 'auto', fontSize: 8, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>{p.currency}</span>
-                        )}
+                  {activePms.map((p) => {
+                    const isCc = p.type === 'credit_card';
+                    const raw = pmBalances[p.id] ?? 0;
+                    const displayVal = isCc ? -raw : raw;
+                    const balColor = isCc ? (raw < 0 ? T.warning : T.success) : (raw >= 0 ? T.ink : T.danger);
+                    return (
+                      <div key={p.id} style={{ flex: '0 0 auto', minWidth: 124, background: p.currency === 'CNY' ? '#FAF4EE' : T.surface, border: `1px solid ${isCc && raw < 0 ? T.warningSoft : p.currency === 'CNY' ? '#E8D9C5' : T.border}`, borderRadius: 12, padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                          <span style={{ fontSize: 10, color: T.textSoft, fontWeight: 500, whiteSpace: 'nowrap' }}>{p.name}</span>
+                          {isCc && <span style={{ marginLeft: 'auto', fontSize: 8, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>CARD</span>}
+                          {!isCc && p.currency !== 'JPY' && (
+                            <span style={{ marginLeft: 'auto', fontSize: 8, background: T.warningSoft, color: T.warning, padding: '1px 4px', borderRadius: 3, fontWeight: 700 }}>{p.currency}</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 9, color: isCc ? T.warning : T.textMute, marginBottom: 2 }}>{isCc ? '待还' : '余额'}</div>
+                        <Amount value={displayVal} size={14} weight={600} currency={p.currency} showCurrency={false} color={balColor} />
                       </div>
-                      <Amount value={pmBalances[p.id] ?? 0} size={14} weight={600} currency={p.currency} showCurrency={false} />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
