@@ -13,6 +13,42 @@ import { T, NUM_FONT, CN_FONT } from '@/lib/tokens';
 import type { ApiTransaction } from '@/lib/types';
 import { useEffect, useState } from 'react';
 
+interface PendingRule {
+  id: string;
+  title: string;
+  amount: number;
+  currency: string;
+  transactionType: string;
+  categoryId: string;
+  paymentMethodId: string;
+  nextRunDate: string;
+  isActive: boolean;
+}
+
+function PendingRuleRow({ rule }: { rule: PendingRule }) {
+  const data = useData();
+  const cat = data.category(rule.categoryId ?? '');
+  const pm = data.paymentMethod(rule.paymentMethodId ?? '');
+  const { mark, tint } = catDisplay(cat?.name ?? '');
+  const isIncome = rule.transactionType === 'income';
+  const dayNum = parseInt(rule.nextRunDate.slice(8), 10);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, fontFamily: CN_FONT, flexShrink: 0, color: T.ink, border: `1.5px dashed ${T.border}` }}>{mark}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rule.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: T.textMute }}>
+          <span style={{ background: T.bgSubtle, color: T.textSoft, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>待执行</span>
+          {pm && <span style={{ fontFamily: NUM_FONT }}>{pm.name}</span>}
+          <span style={{ color: T.textDim }}>·</span>
+          <span>{dayNum} 日执行</span>
+        </div>
+      </div>
+      <Amount value={rule.amount} size={14} weight={600} currency={rule.currency as 'JPY' | 'CNY'} color={isIncome ? T.income : T.ink} sign={isIncome ? '+' : ''} />
+    </div>
+  );
+}
+
 const TYPE_FILTERS = [
   { id: 'all',      label: '全部' },
   { id: 'expense',  label: '支出' },
@@ -332,6 +368,7 @@ export default function TransactionsPage() {
   const { state } = useApp();
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
+  const [pendingRules, setPendingRules] = useState<PendingRule[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -339,14 +376,22 @@ export default function TransactionsPage() {
   const [editingTx, setEditingTx] = useState<ApiTransaction | null>(null);
 
   const month = new Date().toISOString().slice(0, 7);
+  const today = new Date().toISOString().slice(0, 10);
 
   async function loadTxs() {
     setLoading(true);
     const params = new URLSearchParams({ month });
     if (state.currentRole) params.set('actorId', state.currentRole);
     try {
-      const data = await apiGet<ApiTransaction[]>(`/api/transactions?${params}`);
-      setTxs(data);
+      const [txData, rules] = await Promise.all([
+        apiGet<ApiTransaction[]>(`/api/transactions?${params}`),
+        apiGet<PendingRule[]>('/api/recurring-rules'),
+      ]);
+      setTxs(txData);
+      setPendingRules(
+        rules.filter((r) => r.isActive && r.nextRunDate >= today && r.nextRunDate.startsWith(month))
+          .sort((a, b) => a.nextRunDate.localeCompare(b.nextRunDate))
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -388,6 +433,10 @@ export default function TransactionsPage() {
     return typeFilter === 'all' || t.transactionType === typeFilter;
   });
 
+  const filteredPending = typeFilter === 'transfer' ? [] : pendingRules.filter((r) =>
+    typeFilter === 'all' || r.transactionType === typeFilter
+  );
+
   const byDate: Record<string, ApiTransaction[]> = {};
   filtered.forEach((t) => { (byDate[t.transactionDate] ??= []).push(t); });
   const dates = Object.keys(byDate).sort().reverse();
@@ -423,7 +472,22 @@ export default function TransactionsPage() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 14px 80px' }}>
         {loading && <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>加载中…</div>}
-        {!loading && dates.length === 0 && (
+        {!loading && filteredPending.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px 6px' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: T.textSoft }}>本月待执行</span>
+              <span style={{ fontSize: 11, color: T.textMute }}>{filteredPending.length} 项</span>
+            </div>
+            <Card pad={4} style={{ border: `1px dashed ${T.border}` }}>
+              {filteredPending.map((rule, i) => (
+                <div key={rule.id} style={{ padding: '0 8px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
+                  <PendingRuleRow rule={rule} />
+                </div>
+              ))}
+            </Card>
+          </div>
+        )}
+        {!loading && dates.length === 0 && filteredPending.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMute, fontSize: 13 }}>暂无记录</div>
         )}
         {dates.map((d) => {

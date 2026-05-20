@@ -260,7 +260,7 @@ function RuleRow({ rule, onToggle, onClick }: { rule: RecurringRule; onToggle: (
               {rule.isActive ? '下次生成 ' : '已暂停 · '}
               <span style={{ color: rule.isActive ? T.ink : T.textMute, fontFamily: NUM_FONT, fontWeight: 600 }}>{rule.isActive ? nextLabel : '—'}</span>
             </span>
-            <div onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+            <div onClick={(e) => e.stopPropagation()}>
               <Toggle on={rule.isActive} onClick={onToggle} />
             </div>
           </div>

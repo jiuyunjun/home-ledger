@@ -101,18 +101,21 @@ export default function DashboardPage() {
   const [usageItems, setUsageItems] = useState<BudgetUsageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
+  const [recurringRules, setRecurringRules] = useState<{ id: string; transactionType: string; amount: number; currency: string; nextRunDate: string; isActive: boolean }[]>([]);
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
     try {
-      const [list, usageResp, balances] = await Promise.all([
+      const [list, usageResp, balances, rules] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?month=${m}`),
         apiGet<{ month: string; items: BudgetUsageItem[] }>(`/api/budgets/usage?month=${m}`),
         apiGet<Record<string, number>>('/api/payment-methods/balances'),
+        apiGet<{ id: string; transactionType: string; amount: number; currency: string; nextRunDate: string; isActive: boolean }[]>('/api/recurring-rules'),
       ]);
       setTxs(list);
       setUsageItems(usageResp.items);
       setPmBalances(balances);
+      setRecurringRules(rules);
     } catch (e) {
       console.error(e);
     } finally {
@@ -158,6 +161,19 @@ export default function DashboardPage() {
   const recent = filteredTxs.slice(0, 6);
 
   const activePms = data.paymentMethods.filter((p) => p.isActive).slice(0, 5);
+
+  // Projected month-end balance (JPY only)
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const currentMonth = todayStr.slice(0, 7);
+  const jpyPmTotal = data.paymentMethods
+    .filter((p) => p.isActive && (p.currency === 'JPY' || !p.currency))
+    .reduce((s, p) => s + (pmBalances[p.id] ?? 0), 0);
+  const remainingRules = recurringRules.filter(
+    (r) => r.isActive && r.currency === 'JPY' && r.nextRunDate >= todayStr && r.nextRunDate.startsWith(currentMonth)
+  );
+  const projectedIn = remainingRules.filter((r) => r.transactionType === 'income').reduce((s, r) => s + r.amount, 0);
+  const projectedEx = remainingRules.filter((r) => r.transactionType === 'expense').reduce((s, r) => s + r.amount, 0);
+  const projectedBalance = jpyPmTotal + projectedIn - projectedEx;
 
   return (
     <PhoneScreen>
@@ -334,6 +350,17 @@ export default function DashboardPage() {
                   ))}
                 </div>
               </>
+            )}
+
+            {/* Projected month-end balance */}
+            {remainingRules.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 4px 10px', marginTop: -4 }}>
+                <span style={{ fontSize: 11, color: T.textMute }}>
+                  月底预计余额
+                  <span style={{ marginLeft: 4, color: T.textDim }}>(+{projectedIn > 0 ? `¥${projectedIn.toLocaleString()}` : 0} −{projectedEx > 0 ? `¥${projectedEx.toLocaleString()}` : 0})</span>
+                </span>
+                <Amount value={projectedBalance} size={13} weight={600} color={projectedBalance >= 0 ? T.income : T.danger} />
+              </div>
             )}
 
             {/* Budget alerts */}
