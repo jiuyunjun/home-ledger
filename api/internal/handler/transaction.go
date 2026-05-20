@@ -164,10 +164,13 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		TransactionDate *string `json:"transactionDate"`
+		Amount          *int64  `json:"amount"`
 		Title           *string `json:"title"`
 		MerchantName    *string `json:"merchantName"`
 		Memo            *string `json:"memo"`
 		CategoryID      *string `json:"categoryId"`
+		FromAccountID   *string `json:"fromAccountId"`
+		ToAccountID     *string `json:"toAccountId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAppError(w, domain.NewValidationError("invalid request body", ""))
@@ -177,6 +180,13 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	updates := map[string]any{"updatedAt": time.Now().UTC()}
 	if req.TransactionDate != nil {
 		updates["transactionDate"] = *req.TransactionDate
+	}
+	if req.Amount != nil {
+		if *req.Amount <= 0 {
+			writeAppError(w, domain.NewValidationError("amount must be positive", "amount"))
+			return
+		}
+		updates["amount"] = *req.Amount
 	}
 	if req.Title != nil {
 		updates["title"] = *req.Title
@@ -189,6 +199,12 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.CategoryID != nil {
 		updates["categoryId"] = *req.CategoryID
+	}
+	if req.FromAccountID != nil {
+		updates["fromAccountId"] = *req.FromAccountID
+	}
+	if req.ToAccountID != nil {
+		updates["toAccountId"] = *req.ToAccountID
 	}
 
 	if err := repo.UpdateTransaction(r.Context(), txID, updates); err != nil {

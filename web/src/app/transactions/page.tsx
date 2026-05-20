@@ -158,15 +158,19 @@ function CategoryPicker({ currentId, onSelect, onClose }: {
 
 function EditSheet({ tx, onSave, onClose }: {
   tx: ApiTransaction;
-  onSave: (patch: Record<string, string>) => Promise<void>;
+  onSave: (patch: Record<string, unknown>) => Promise<void>;
   onClose: () => void;
 }) {
   const data = useData();
+  const isTransfer = tx.transactionType === 'transfer';
   const [title, setTitle] = useState(tx.title ?? '');
   const [merchantName, setMerchantName] = useState(tx.merchantName ?? '');
   const [date, setDate] = useState(tx.transactionDate);
   const [memo, setMemo] = useState(tx.memo ?? '');
   const [categoryId, setCategoryId] = useState(tx.categoryId ?? '');
+  const [amountStr, setAmountStr] = useState(String(tx.amount));
+  const [fromPmId, setFromPmId] = useState(tx.fromAccountId ?? '');
+  const [toPmId, setToPmId] = useState(tx.toAccountId ?? '');
   const [showCatPicker, setShowCatPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
@@ -183,21 +187,31 @@ function EditSheet({ tx, onSave, onClose }: {
 
   const cat = data.category(categoryId);
   const { mark, tint } = catDisplay(cat?.name ?? '');
+  const activePms = data.paymentMethods.filter((p) => p.isActive);
 
   async function handleSave() {
     setSaving(true);
-    const patch: Record<string, string> = {};
-    if (title !== (tx.title ?? '')) patch.title = title;
-    if (merchantName !== (tx.merchantName ?? '')) patch.merchantName = merchantName;
+    const patch: Record<string, unknown> = {};
     if (date !== tx.transactionDate) patch.transactionDate = date;
     if (memo !== (tx.memo ?? '')) patch.memo = memo;
-    if (categoryId !== (tx.categoryId ?? '')) patch.categoryId = categoryId;
+    if (isTransfer) {
+      const amt = Math.round(parseFloat(amountStr) || 0);
+      if (amt > 0 && amt !== tx.amount) patch.amount = amt;
+      if (fromPmId && fromPmId !== (tx.fromAccountId ?? '')) patch.fromAccountId = fromPmId;
+      if (toPmId && toPmId !== (tx.toAccountId ?? '')) patch.toAccountId = toPmId;
+    } else {
+      if (title !== (tx.title ?? '')) patch.title = title;
+      if (merchantName !== (tx.merchantName ?? '')) patch.merchantName = merchantName;
+      if (categoryId !== (tx.categoryId ?? '')) patch.categoryId = categoryId;
+    }
     try {
       await onSave(patch);
     } finally {
       setSaving(false);
     }
   }
+
+  const inputStyle = { padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt } as const;
 
   return (
     <>
@@ -208,26 +222,48 @@ function EditSheet({ tx, onSave, onClose }: {
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 99, background: T.surface, borderRadius: '16px 16px 0 0', padding: '16px 16px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, textAlign: 'center', marginBottom: 18 }}>编辑记录</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {tx.transactionType === 'transfer' ? (
-            <div style={{ padding: '10px 12px', background: T.transferSoft, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.transfer, fontWeight: 500 }}>
-              <span>{data.paymentMethod(tx.fromAccountId ?? '')?.name ?? '—'}</span>
-              <span style={{ color: T.textDim }}>→</span>
-              <span>{data.paymentMethod(tx.toAccountId ?? '')?.name ?? '—'}</span>
-              <span style={{ marginLeft: 'auto', fontFamily: NUM_FONT, fontWeight: 600 }}>¥{tx.amount.toLocaleString()}</span>
-            </div>
+          {isTransfer ? (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>转出账户</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {activePms.map((pm) => (
+                    <div key={pm.id} onClick={() => setFromPmId(pm.id)}
+                      style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer', background: fromPmId === pm.id ? T.ink : T.surfaceAlt, color: fromPmId === pm.id ? '#fff' : T.ink, border: `1px solid ${fromPmId === pm.id ? T.ink : T.border}` }}>
+                      {pm.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>转入账户</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {activePms.map((pm) => (
+                    <div key={pm.id} onClick={() => setToPmId(pm.id)}
+                      style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer', background: toPmId === pm.id ? T.transfer : T.surfaceAlt, color: toPmId === pm.id ? '#fff' : T.ink, border: `1px solid ${toPmId === pm.id ? T.transfer : T.border}` }}>
+                      {pm.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>金额</label>
+                <input type="text" inputMode="decimal" value={amountStr}
+                  onChange={e => setAmountStr(e.target.value.replace(/[^\d.]/g, ''))}
+                  style={{ ...inputStyle, fontFamily: NUM_FONT, fontSize: 18, fontWeight: 600 }} />
+              </div>
+            </>
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>店铺名称</label>
                 <input value={merchantName} onChange={e => setMerchantName(e.target.value)}
-                  placeholder="店铺 / 来源（可选）"
-                  style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+                  placeholder="店铺 / 来源（可选）" style={inputStyle} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>品目名称</label>
                 <input value={title} onChange={e => setTitle(e.target.value)}
-                  placeholder="可为空（使用分类名）"
-                  style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 14, color: T.ink, outline: 'none', background: T.surfaceAlt }} />
+                  placeholder="可为空（使用分类名）" style={inputStyle} />
               </div>
             </>
           )}
@@ -553,7 +589,7 @@ export default function TransactionsPage() {
     }
   }
 
-  async function handleSaveEdit(patch: Record<string, string>) {
+  async function handleSaveEdit(patch: Record<string, unknown>) {
     if (!editingTx) return;
     await apiPatch(`/api/transactions/${editingTx.id}`, patch);
     setEditingTx(null);
@@ -666,6 +702,9 @@ export default function TransactionsPage() {
   const activePms = data.paymentMethods.filter((p) => p.isActive);
   const hasFilters = filterPmIds.length > 0 || filterActorIds.length > 0 || sortBy !== 'time-desc';
 
+  const monthlyExpense = txs.filter(t => t.transactionType === 'expense' && t.currency === 'JPY').reduce((s, t) => s + t.amount, 0);
+  const monthlyIncome = txs.filter(t => t.transactionType === 'income' && t.currency === 'JPY').reduce((s, t) => s + t.amount, 0);
+
   return (
     <PhoneScreen>
       {editingTx && (
@@ -690,6 +729,21 @@ export default function TransactionsPage() {
           </div>
         }
       />
+
+      {!loading && (monthlyExpense > 0 || monthlyIncome > 0) && (
+        <div style={{ display: 'flex', gap: 16, padding: '6px 18px 2px', justifyContent: 'flex-end' }}>
+          {monthlyExpense > 0 && (
+            <span style={{ fontSize: 11, color: T.textSoft }}>
+              支出 <span style={{ fontFamily: NUM_FONT, fontWeight: 600, color: T.ink }}>¥{monthlyExpense.toLocaleString()}</span>
+            </span>
+          )}
+          {monthlyIncome > 0 && (
+            <span style={{ fontSize: 11, color: T.textSoft }}>
+              入账 <span style={{ fontFamily: NUM_FONT, fontWeight: 600, color: T.income }}>+¥{monthlyIncome.toLocaleString()}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       <div style={{ padding: '0 14px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: T.surface, border: `1px solid ${q ? T.accent : T.border}`, borderRadius: 10 }}>
