@@ -12,17 +12,25 @@ import (
 	"strings"
 )
 
+// VoiceLineItem is one item within a multi-category voice expense.
+type VoiceLineItem struct {
+	Title      string `json:"title"`
+	CategoryID string `json:"categoryId"`
+	Amount     int64  `json:"amount"` // display units (JPY yen, CNY yuan)
+}
+
 // VoiceEntryResult is the parsed transaction suggestion from a voice recording.
 type VoiceEntryResult struct {
-	TransactionType string `json:"transactionType"` // expense | income | transfer
-	Amount          int64  `json:"amount"`          // positive integer display units (JPY yen, CNY yuan)
-	Currency        string `json:"currency"`        // JPY | CNY
-	MerchantName    string `json:"merchantName"`
-	Title           string `json:"title"`
-	CategoryID      string `json:"categoryId"`
-	PaymentMethodID string `json:"paymentMethodId"`
-	Memo            string `json:"memo"`
-	Transcript      string `json:"transcript"`
+	TransactionType string          `json:"transactionType"` // expense | income | transfer
+	Amount          int64           `json:"amount"`          // positive integer display units (JPY yen, CNY yuan)
+	Currency        string          `json:"currency"`        // JPY | CNY
+	MerchantName    string          `json:"merchantName"`
+	Title           string          `json:"title"`
+	CategoryID      string          `json:"categoryId"`
+	PaymentMethodID string          `json:"paymentMethodId"`
+	Memo            string          `json:"memo"`
+	Transcript      string          `json:"transcript"`
+	LineItems       []VoiceLineItem `json:"lineItems,omitempty"` // set when >1 distinct item
 }
 
 // CategoryHint is passed to ParseVoiceEntry for AI category matching.
@@ -92,7 +100,8 @@ Return ONLY this JSON object — no markdown, no explanation:
   "title": "<concise item or purpose in simplified Chinese>",
   "categoryId": "<id from provided category list, or empty string>",
   "paymentMethodId": "<id from provided payment method list, or empty string>",
-  "memo": "<any extra context, or empty string>"
+  "memo": "<any extra context, or empty string>",
+  "lineItems": []
 }
 
 Rules:
@@ -104,7 +113,13 @@ Rules:
 - categoryId: match to the provided category list by semantic meaning. Use "" if unclear.
 - paymentMethodId: match to the provided payment method list by name/type hint. Use "" if unclear.
 - For income: salary/工资/bonus/报销 → income; received transfer → income.
-- For transfer: explicit movement between own accounts → transfer.`
+- For transfer: explicit movement between own accounts → transfer.
+
+lineItems rule (expense only):
+- If the user mentions 2 or more DISTINCT items with DIFFERENT categories, populate lineItems:
+  [{ "title": "<item name in Chinese>", "categoryId": "<id>", "amount": <integer> }, ...]
+  sum(lineItems[].amount) MUST equal amount exactly.
+- If there is only one item or all items share the same category, leave lineItems as [].`
 
 // ParseVoiceEntry uses GPT to turn a transcript into a structured transaction suggestion.
 func ParseVoiceEntry(ctx context.Context, transcript string, categories []CategoryHint, paymentMethods []PaymentMethodHint) (*VoiceEntryResult, error) {

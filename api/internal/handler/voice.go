@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/home-ledger/api/internal/ai"
 	"github.com/home-ledger/api/internal/domain"
 	"github.com/home-ledger/api/internal/repo"
@@ -60,28 +62,68 @@ func voiceEntry(w http.ResponseWriter, r *http.Request) {
 	cats, _ := repo.ListCategories(r.Context(), claims.HouseholdID)
 	catHints := make([]ai.CategoryHint, 0, len(cats))
 	for _, c := range cats {
-		catHints = append(catHints, ai.CategoryHint{
-			ID:   c.ID,
-			Name: c.Name,
-			Type: string(c.Type),
-		})
+		catHints = append(catHints, ai.CategoryHint{ID: c.ID, Name: c.Name, Type: string(c.Type)})
 	}
 
 	pms, _ := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
 	pmHints := make([]ai.PaymentMethodHint, 0, len(pms))
 	for _, pm := range pms {
 		if pm.IsActive {
-			pmHints = append(pmHints, ai.PaymentMethodHint{
-				ID:   pm.ID,
-				Name: pm.Name,
-				Type: string(pm.Type),
-			})
+			pmHints = append(pmHints, ai.PaymentMethodHint{ID: pm.ID, Name: pm.Name, Type: string(pm.Type)})
 		}
 	}
 
 	result, err := ai.ParseVoiceEntry(r.Context(), transcript, catHints, pmHints)
 	if err != nil {
 		writeAppError(w, &domain.AppError{Code: "AI_PARSE_FAILED", Message: err.Error()})
+		return
+	}
+
+	// Multi-item expense: create candidates and send to confirmation flow
+	if result.TransactionType == "expense" && len(result.LineItems) > 1 {
+		now := time.Now().UTC()
+		today := now.Format("2006-01-02")
+		subReceiptID := uuid.NewString()
+		currency := domain.Currency(result.Currency)
+		if currency == "" {
+			currency = domain.CurrencyJPY
+		}
+
+		candidates := make([]*domain.TransactionCandidate, 0, len(result.LineItems))
+		for _, item := range result.LineItems {
+			c := &domain.TransactionCandidate{
+				ID:                       uuid.NewString(),
+				ReceiptID:                "",
+				SubReceiptID:             subReceiptID,
+				HouseholdID:              claims.HouseholdID,
+				SuggestedActorID:         claims.ActorID,
+				SuggestedType:            domain.TxExpense,
+				SuggestedDate:            today,
+				SuggestedAmount:          item.Amount,
+				SuggestedCurrency:        currency,
+				SuggestedCategoryID:      item.CategoryID,
+				SuggestedPaymentMethodID: result.PaymentMethodID,
+				StoreName:                result.MerchantName,
+				MerchantName:             item.Title,
+				AIUserNote:               transcript,
+				Confidence:               0.85,
+				Warnings:                 []domain.CandidateWarning{},
+				Status:                   domain.CandidateDraft,
+				CreatedAt:                now,
+				UpdatedAt:                now,
+			}
+			if err := repo.CreateCandidate(r.Context(), c); err != nil {
+				writeAppError(w, domain.NewInternalError(err))
+				return
+			}
+			candidates = append(candidates, c)
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"mode":       "candidates",
+			"candidates": candidates,
+			"transcript": transcript,
+		})
 		return
 	}
 

@@ -102,7 +102,9 @@ export default function UploadPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [hint, setHint] = useState('');
-  const [compress, setCompress] = useState(false);
+  const [compress, setCompress] = useState(() => {
+    try { return localStorage.getItem('upload_compress') === 'true'; } catch { return false; }
+  });
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -226,7 +228,11 @@ export default function UploadPage() {
         </div>
 
         {/* Compress toggle */}
-        <div onClick={() => setCompress((v) => !v)}
+        <div onClick={() => setCompress((v) => {
+          const next = !v;
+          try { localStorage.setItem('upload_compress', String(next)); } catch {}
+          return next;
+        })}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', marginTop: 10, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, cursor: 'pointer' }}>
           <div>
             <div style={{ fontSize: 13, color: T.ink, fontWeight: 500 }}>压缩图片</div>
