@@ -11,7 +11,8 @@ import { apiDelete, apiGet, apiGetBlob, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import { T, NUM_FONT, CN_FONT } from '@/lib/tokens';
 import type { ApiTransaction } from '@/lib/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface PendingRule {
   id: string;
@@ -516,12 +517,24 @@ function ApiTxRow({ tx, expanded, confirming, onTap, onEdit, onDelete, onConfirm
 export default function TransactionsPage() {
   const { state } = useApp();
   const data = useData();
+  const searchParams = useSearchParams();
+  const initDone = useRef(false);
   const [month, setMonth] = useState(todayMonth);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('time-desc');
   const [filterPmIds, setFilterPmIds] = useState<string[]>([]);
   const [filterActorIds, setFilterActorIds] = useState<string[]>([]);
+  const [filterCatIds, setFilterCatIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (initDone.current) return;
+    initDone.current = true;
+    const cat = searchParams.get('cat');
+    const m = searchParams.get('month');
+    if (cat) setFilterCatIds([cat]);
+    if (m) setMonth(m);
+  }, [searchParams]);
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
   const [pendingRules, setPendingRules] = useState<PendingRule[]>([]);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
@@ -665,6 +678,7 @@ export default function TransactionsPage() {
       }
     }
     if (filterActorIds.length > 0 && !filterActorIds.includes(t.actorId)) return false;
+    if (filterCatIds.length > 0 && !filterCatIds.includes(t.categoryId ?? '')) return false;
     if (q) {
       const hay = [t.title, t.merchantName, t.memo].filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
@@ -731,7 +745,7 @@ export default function TransactionsPage() {
       );
 
   const activePms = data.paymentMethods.filter((p) => p.isActive);
-  const hasFilters = filterPmIds.length > 0 || filterActorIds.length > 0 || sortBy !== 'time-desc';
+  const hasFilters = filterPmIds.length > 0 || filterActorIds.length > 0 || filterCatIds.length > 0 || sortBy !== 'time-desc';
 
   const monthlyExpense = txs.filter(t => t.transactionType === 'expense' && t.currency === 'JPY').reduce((s, t) => s + t.amount, 0);
   const monthlyIncome = txs.filter(t => t.transactionType === 'income' && t.currency === 'JPY').reduce((s, t) => s + t.amount, 0);
@@ -840,8 +854,22 @@ export default function TransactionsPage() {
               </div>
             );
           })}
+          {filterCatIds.map((catId) => {
+            const cat = data.category(catId);
+            return (
+              <div key={catId} onClick={() => setFilterCatIds((prev) => prev.filter((id) => id !== catId))} style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+                background: T.accentSoft, color: T.accent,
+                border: `1px solid ${T.accent}40`,
+                fontSize: 11, fontWeight: 500, cursor: 'pointer',
+              }}>
+                {cat?.name ?? '分类'} ×
+              </div>
+            );
+          })}
           {hasFilters && (
-            <div onClick={() => { setSortBy('time-desc'); setFilterPmIds([]); setFilterActorIds([]); }} style={{
+            <div onClick={() => { setSortBy('time-desc'); setFilterPmIds([]); setFilterActorIds([]); setFilterCatIds([]); }} style={{
               padding: '4px 10px', borderRadius: 20, flexShrink: 0,
               background: T.dangerSoft, color: T.danger,
               border: `1px solid transparent`,

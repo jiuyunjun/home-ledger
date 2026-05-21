@@ -21,6 +21,8 @@ export function PhoneScreen({ children, bg = T.bg }: Props) {
         flexDirection: 'column',
         position: 'relative',
         WebkitFontSmoothing: 'antialiased',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       } as CSSProperties}
     >
       {children}

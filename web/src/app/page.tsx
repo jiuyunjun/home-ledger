@@ -15,6 +15,7 @@ import { catDisplay } from '@/lib/catDisplay';
 import type { ApiTransaction, BudgetUsageItem } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 const ACTION_BTNS = [
@@ -95,6 +96,7 @@ function TxRowReal({ tx, showDate }: { tx: ApiTransaction; showDate?: boolean })
 export default function DashboardPage() {
   const { state } = useApp();
   const data = useData();
+  const router = useRouter();
 
   const [month, setMonth] = useState(todayMonth);
   const [txs, setTxs] = useState<ApiTransaction[]>([]);
@@ -415,7 +417,7 @@ export default function DashboardPage() {
                     const { mark, tint } = catDisplay(cat?.name ?? '');
                     const pct = catTotal > 0 ? (amount / catTotal) * 100 : 0;
                     return (
-                      <div key={catId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}` }}>
+                      <div key={catId} onClick={() => router.push(`/transactions?cat=${catId}&month=${month}`)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, cursor: 'pointer' }}>
                         <div style={{ width: 28, height: 28, borderRadius: 8, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontFamily: CN_FONT, flexShrink: 0 }}>{mark}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

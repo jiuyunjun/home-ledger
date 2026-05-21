@@ -6,6 +6,11 @@
   box-sizing: border-box;
 }
 
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 html, body {
   margin: 0;
   padding: 0;
