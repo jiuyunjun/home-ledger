@@ -96,6 +96,24 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
 
+  // Apply voice prefill from sessionStorage once on mount
+  useEffect(() => {
+    const raw = sessionStorage.getItem('voice_prefill');
+    if (!raw) return;
+    sessionStorage.removeItem('voice_prefill');
+    try {
+      const p = JSON.parse(raw);
+      if (p.amount > 0) setAmountStr(String(p.amount));
+      if (p.currency === 'CNY' || p.currency === 'JPY') setCurrency(p.currency);
+      if (p.categoryId) setCatId(p.categoryId);
+      if (p.paymentMethodId) setPmId(p.paymentMethodId);
+      if (p.merchantName) setMerchantName(p.merchantName);
+      if (p.title) setTitle(p.title);
+      if (p.memo) setNote(p.memo);
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Set defaults once data loads
   const defaultCatId = catId || cats[0]?.id || '';
   const defaultPmId = pmId || pms[0]?.id || '';
@@ -254,6 +272,19 @@ function TransferForm() {
   const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('voice_prefill');
+    if (!raw) return;
+    sessionStorage.removeItem('voice_prefill');
+    try {
+      const p = JSON.parse(raw);
+      if (p.amount > 0) setFromAmount(String(p.amount));
+      if (p.paymentMethodId) setFromPmId(p.paymentMethodId);
+      if (p.memo) setNote(p.memo);
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const defaultFrom = fromPmId || pms[0]?.id || '';
   const defaultTo = toPmId || pms[1]?.id || '';

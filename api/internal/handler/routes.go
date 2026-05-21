@@ -85,6 +85,9 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Delete("/budgets/{budgetId}", deleteBudget)
 		r.Get("/budgets/usage", getBudgetUsage)
 
+		// Voice entry (AI transcription + parse)
+		r.Post("/voice/entry", voiceEntry)
+
 		// Scheduled jobs (Milestone 10)
 		r.Post("/jobs/generate-recurring-transactions", generateRecurringTransactions)
 	})
