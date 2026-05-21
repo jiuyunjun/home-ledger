@@ -167,7 +167,8 @@ export default function UploadPage() {
 
       try {
         setItemStatus(item.id, 'extracting');
-        await apiPost(`/api/receipts/${uploadedReceiptId}/extract`, {});
+        const aiModel = (() => { try { return localStorage.getItem('ai_model') || 'accurate'; } catch { return 'accurate'; } })();
+        await apiPost(`/api/receipts/${uploadedReceiptId}/extract`, { model: aiModel });
         setItemStatus(item.id, 'done');
         successCount++;
       } catch (err) {

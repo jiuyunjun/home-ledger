@@ -101,10 +101,16 @@ Rules (apply independently to each receipt):
   Use the "id" of the best match. If no list is provided or nothing matches, use "".
 - confidence: 1.0=all fields clearly visible; 0.5=partially legible; 0.2=mostly guessing.`
 
+const (
+	ModelAccurate = "gpt-5.5"
+	ModelFast     = "gpt-5.4-mini-2026-03-17"
+)
+
 // ExtractFromImage sends imageData (JPEG/PNG bytes) to OpenAI Vision and returns
 // all receipts found in the image. userNote is optional guidance.
 // paymentMethods is the household's active payment method list for AI matching.
-func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote string, paymentMethods []PaymentMethodHint) (*ExtractionResult, string, error) {
+// model selects the GPT model; use ModelAccurate or ModelFast.
+func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote, model string, paymentMethods []PaymentMethodHint) (*ExtractionResult, string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return nil, "", fmt.Errorf("OPENAI_API_KEY not set")
@@ -137,8 +143,11 @@ func ExtractFromImage(ctx context.Context, imageData []byte, mimeType, userNote 
 		})
 	}
 
+	if model == "" {
+		model = ModelAccurate
+	}
 	payload := map[string]any{
-		"model": "gpt-5.5",
+		"model": model,
 		"messages": []map[string]any{
 			{"role": "user", "content": userContent},
 		},

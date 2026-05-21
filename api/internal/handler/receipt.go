@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"path"
@@ -154,6 +155,16 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read optional model preference from request body.
+	var reqBody struct {
+		Model string `json:"model"` // "fast" | "accurate" (default)
+	}
+	_ = json.NewDecoder(r.Body).Decode(&reqBody)
+	gptModel := ai.ModelAccurate
+	if reqBody.Model == "fast" {
+		gptModel = ai.ModelFast
+	}
+
 	// Download image from GCS.
 	imageData, err := storage.Download(r.Context(), receipt.StorageObjectPath)
 	if err != nil {
@@ -175,7 +186,7 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call OpenAI.
-	extracted, rawJSON, err := ai.ExtractFromImage(r.Context(), imageData, receipt.MIMEType, receipt.AIUserNote, pmHints)
+	extracted, rawJSON, err := ai.ExtractFromImage(r.Context(), imageData, receipt.MIMEType, receipt.AIUserNote, gptModel, pmHints)
 
 	now := time.Now().UTC()
 	if err != nil {

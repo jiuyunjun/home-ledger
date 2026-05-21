@@ -417,6 +417,9 @@ export default function SettingsPage() {
   const [signingOut, setSigningOut] = useState(false);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
   const [pmBalancesLoading, setPmBalancesLoading] = useState(true);
+  const [aiModel, setAiModel] = useState<'fast' | 'accurate'>(() => {
+    try { return (localStorage.getItem('ai_model') as 'fast' | 'accurate') || 'accurate'; } catch { return 'accurate'; }
+  });
 
   useEffect(() => {
     setPmBalancesLoading(true);
@@ -580,6 +583,23 @@ export default function SettingsPage() {
                 </div>
               );
             })}
+          </div>
+        </Card>
+
+        {/* AI model selection */}
+        <SectionLabel right={<span style={{ color: T.textMute, fontSize: 10 }}>仅影响小票识别</span>}>AI 模型</SectionLabel>
+        <Card pad={12} style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {([{ value: 'accurate', label: '精准', sub: 'GPT-5.5' }, { value: 'fast', label: '快速', sub: 'GPT-5.4 mini' }] as const).map((opt) => (
+              <div key={opt.value} onClick={() => {
+                setAiModel(opt.value);
+                try { localStorage.setItem('ai_model', opt.value); } catch {}
+              }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${aiModel === opt.value ? T.accent : T.border}`, background: aiModel === opt.value ? T.accentSoft : T.surface, cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: aiModel === opt.value ? T.accent : T.ink }}>{opt.label}</div>
+                <div style={{ fontSize: 10, color: T.textMute, marginTop: 2 }}>{opt.sub}</div>
+              </div>
+            ))}
           </div>
         </Card>
 

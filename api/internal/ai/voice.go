@@ -139,7 +139,7 @@ func ParseVoiceEntry(ctx context.Context, transcript string, categories []Catego
 	}
 
 	payload := map[string]any{
-		"model": "gpt-4o-mini",
+		"model": ModelFast,
 		"messages": []map[string]any{
 			{"role": "user", "content": strings.Join(parts, "\n")},
 		},
