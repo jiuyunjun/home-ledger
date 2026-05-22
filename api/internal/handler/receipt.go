@@ -218,6 +218,10 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		catByName[c.Name] = c.ID
 	}
 
+	// Clear any previous draft candidates for this receipt so re-extraction
+	// doesn't pile up duplicate drafts. Confirmed/rejected stay untouched.
+	_ = repo.DeleteDraftCandidatesByReceipt(r.Context(), claims.HouseholdID, receiptID)
+
 	today := now.In(jstZone).Format("2006-01-02")
 
 	// Create candidates for every receipt detected in the photo.

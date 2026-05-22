@@ -249,20 +249,23 @@ function ItemConfRow({ candidate, edit, rejected, first, onEditName, onEditAmoun
 
 // ─── Receipt group ────────────────────────────────────────────────────────────
 
-function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup }: {
+function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, regenerating, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup, onRegenerate }: {
   group: { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; storeName: string; items: Candidate[] };
   itemEdits: Record<string, ItemEdit>;
   receiptEdit: ReceiptEdit;
   rejected: Set<string>;
+  regenerating: boolean;
   onItemEdit: (id: string, patch: Partial<ItemEdit>) => void;
   onReceiptEdit: (patch: Partial<ReceiptEdit>) => void;
   onToggleReject: (id: string) => void;
   onRejectGroup: () => void;
+  onRegenerate: (model: 'fast' | 'accurate') => void;
 }) {
   const data = useData();
   const [editingDate, setEditingDate] = useState(false);
   const [showActorPicker, setShowActorPicker] = useState(false);
   const [showPmPicker, setShowPmPicker] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
   const dateRef = useRef<HTMLInputElement>(null);
 
   const date     = receiptEdit.suggestedTransactionDate ?? group.date;
@@ -295,7 +298,7 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onR
       {showPmPicker && <PaymentMethodPicker currentId={pmId} onSelect={(id) => onReceiptEdit({ suggestedPaymentMethodId: id })} onClose={() => setShowPmPicker(false)} />}
 
       {/* Receipt summary card */}
-      <div style={{ display: 'flex', gap: 12, padding: 12, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 12, padding: 12, background: T.surface, border: `1px solid ${avgConf < 0.7 ? T.warning : T.border}`, borderRadius: 14, marginBottom: 10, position: 'relative' }}>
         <ReceiptThumb w={60} h={80} label="" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, flexWrap: 'wrap' }}>
@@ -312,7 +315,41 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onR
           </div>
           <Amount value={total} size={20} weight={600} color={T.ink} currency={currency} />
         </div>
+        <div onClick={() => !regenerating && setRegenOpen((v) => !v)}
+          style={{ position: 'absolute', top: 10, right: 10, padding: '4px 9px', borderRadius: 999, border: `1px solid ${avgConf < 0.7 ? T.warning : T.border}`, background: avgConf < 0.7 ? T.warningSoft : T.surfaceAlt, color: avgConf < 0.7 ? T.warning : T.textSoft, fontSize: 10, fontWeight: 600, cursor: regenerating ? 'default' : 'pointer', opacity: regenerating ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+          {regenerating ? '识别中…' : '↻ 重新生成'}
+        </div>
       </div>
+
+      {/* Regenerate model picker (inline) */}
+      {regenOpen && !regenerating && (
+        <div style={{ marginBottom: 10, padding: 10, border: `1px solid ${T.border}`, borderRadius: 10, background: T.surfaceAlt }}>
+          <div style={{ fontSize: 11, color: T.textSoft, marginBottom: 6 }}>当前 {group.items.length} 项将被丢弃并重新识别 · 选择模型：</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {([{ v: 'accurate', label: '精准', sub: 'GPT-5.5' }, { v: 'fast', label: '快速', sub: 'GPT-5.4 mini' }] as const).map((opt) => (
+              <div key={opt.v} onClick={() => { setRegenOpen(false); onRegenerate(opt.v); }}
+                style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.ink }}>{opt.label}</div>
+                <div style={{ fontSize: 9, color: T.textMute, marginTop: 1 }}>{opt.sub}</div>
+              </div>
+            ))}
+            <div onClick={() => setRegenOpen(false)}
+              style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: T.textMute, alignSelf: 'center' }}>
+              取消
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Low confidence warning — surfaced above items so user sees it first */}
+      {lowConfItems.length > 0 && !regenerating && (
+        <div style={{ background: T.warningSoft, padding: '10px 12px', borderRadius: 10, display: 'flex', gap: 8, marginBottom: 10 }}>
+          <div style={{ width: 18, height: 18, borderRadius: 9, flexShrink: 0, background: T.warning, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>!</div>
+          <div style={{ fontSize: 11, color: T.ink, lineHeight: 1.5 }}>
+            <strong>{lowConfItems.length} 个商品</strong>分类置信度较低，建议核对，或点击右上角重新生成。
+          </div>
+        </div>
+      )}
 
       {/* User hint */}
       {group.hint && (
@@ -435,16 +472,6 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onR
         ))}
         {allRejected && <div style={{ padding: '14px 12px', fontSize: 12, color: T.textMute, textAlign: 'center' }}>已全部排除</div>}
       </Card>
-
-      {/* Low confidence warning */}
-      {lowConfItems.length > 0 && (
-        <div style={{ background: T.warningSoft, padding: '10px 12px', borderRadius: 10, display: 'flex', gap: 8, marginBottom: 4 }}>
-          <div style={{ width: 18, height: 18, borderRadius: 9, flexShrink: 0, background: T.warning, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>!</div>
-          <div style={{ fontSize: 11, color: T.ink, lineHeight: 1.5 }}>
-            <strong>{lowConfItems.length} 个商品</strong>分类置信度较低，请点击分类图标核对。
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -462,6 +489,7 @@ export default function AIConfirmPage() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [confirmError, setConfirmError] = useState('');
+  const [regeneratingReceiptId, setRegeneratingReceiptId] = useState<string | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -560,6 +588,33 @@ export default function AIConfirmPage() {
     }
   }
 
+  async function handleRegenerate(receiptId: string, model: 'fast' | 'accurate') {
+    if (regeneratingReceiptId) return;
+    setRegeneratingReceiptId(receiptId);
+    setConfirmError('');
+    // Drop any in-flight edits / reject toggles for items under this receipt
+    // since they'll be replaced by new candidate IDs.
+    const oldIds = candidates.filter((c) => c.receiptId === receiptId).map((c) => c.id);
+    setItemEdits((prev) => {
+      const next = { ...prev };
+      for (const id of oldIds) delete next[id];
+      return next;
+    });
+    setRejected((prev) => {
+      const next = new Set(prev);
+      for (const id of oldIds) next.delete(id);
+      return next;
+    });
+    try {
+      await apiPost(`/api/receipts/${receiptId}/extract`, { model });
+      await fetchCandidates();
+    } catch (e) {
+      setConfirmError(e instanceof Error ? e.message : '重新生成失败');
+    } finally {
+      setRegeneratingReceiptId(null);
+    }
+  }
+
   async function handleRejectAll() {
     if (acting) return;
     setActing(true);
@@ -617,10 +672,12 @@ export default function AIConfirmPage() {
             itemEdits={itemEdits}
             receiptEdit={receiptEdits[group.key] ?? {}}
             rejected={rejected}
+            regenerating={regeneratingReceiptId === group.receiptId}
             onItemEdit={setItemEdit}
             onReceiptEdit={(patch) => setReceiptEdit(group.key, patch)}
             onToggleReject={toggleReject}
-            onRejectGroup={() => group.items.forEach((c) => setRejected((prev) => new Set([...prev, c.id])))} />
+            onRejectGroup={() => group.items.forEach((c) => setRejected((prev) => new Set([...prev, c.id])))}
+            onRegenerate={(model) => handleRegenerate(group.receiptId, model)} />
         ))}
         <div style={{ fontSize: 11, color: T.textMute, textAlign: 'center', marginTop: 4 }}>
           点击分类图标修改 · 点击名称或金额编辑 · 点击"编辑 ›"排除此项

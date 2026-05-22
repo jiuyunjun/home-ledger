@@ -54,3 +54,26 @@ func UpdateCandidate(ctx context.Context, id string, updates map[string]any) err
 	_, err := fs(ctx).Collection("transactionCandidates").Doc(id).Set(ctx, updates, firestore.MergeAll)
 	return err
 }
+
+// DeleteDraftCandidatesByReceipt removes every draft candidate tied to the given
+// receipt — used when the user re-runs extraction on a receipt that already has
+// AI-generated drafts. Confirmed/rejected candidates are left alone.
+func DeleteDraftCandidatesByReceipt(ctx context.Context, householdID, receiptID string) error {
+	docs, err := fs(ctx).Collection("transactionCandidates").
+		Where("householdId", "==", householdID).
+		Where("receiptId", "==", receiptID).
+		Where("status", "==", string(domain.CandidateDraft)).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return err
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+	batch := fs(ctx).Batch()
+	for _, d := range docs {
+		batch.Delete(d.Ref)
+	}
+	_, err = batch.Commit(ctx)
+	return err
+}
