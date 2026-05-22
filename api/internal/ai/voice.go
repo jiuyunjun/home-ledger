@@ -111,7 +111,7 @@ Rules:
 - merchantName: the store, restaurant, or person name if mentioned.
 - title: concise Chinese description of the item/purpose. Translate Japanese to simplified Chinese.
 - categoryId: match to the provided category list by semantic meaning. Use "" if unclear.
-- paymentMethodId: match to the provided payment method list by name/type hint. Use "" if unclear.
+- paymentMethodId: match to the provided payment method list by name/type hint. Each method has an ownerName — prefer methods owned by the caller. Use "" if unclear.
 - For income: salary/工资/bonus/报销 → income; received transfer → income.
 - For transfer: explicit movement between own accounts → transfer.
 
@@ -122,13 +122,17 @@ lineItems rule (expense only):
 - If there is only one item or all items share the same category, leave lineItems as [].`
 
 // ParseVoiceEntry uses GPT to turn a transcript into a structured transaction suggestion.
-func ParseVoiceEntry(ctx context.Context, transcript string, categories []CategoryHint, paymentMethods []PaymentMethodHint) (*VoiceEntryResult, error) {
+func ParseVoiceEntry(ctx context.Context, transcript string, callerName string, categories []CategoryHint, paymentMethods []PaymentMethodHint) (*VoiceEntryResult, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("OPENAI_API_KEY not set")
 	}
 
-	parts := []string{voiceSystemPrompt, "\nUser said: " + transcript}
+	callerLine := ""
+	if callerName != "" {
+		callerLine = "\nCaller (the person speaking): " + callerName + ". Prefer payment methods owned by this person."
+	}
+	parts := []string{voiceSystemPrompt, callerLine, "\nUser said: " + transcript}
 	if len(categories) > 0 {
 		catsJSON, _ := json.Marshal(categories)
 		parts = append(parts, "\nAvailable categories:\n"+string(catsJSON))

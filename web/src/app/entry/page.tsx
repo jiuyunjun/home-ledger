@@ -84,7 +84,12 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const accentColor = isIncome ? T.income : T.accent;
 
   const cats = isIncome ? data.incomeCategories() : data.expenseCategories();
-  const pms = data.paymentMethods.filter((p) => p.isActive);
+  const currentActorId = state.currentRole || data.me?.actorId || '';
+  const pms = [...data.paymentMethods.filter((p) => p.isActive)].sort((a, b) => {
+    const aOwn = a.ownerActorId === currentActorId ? 0 : 1;
+    const bOwn = b.ownerActorId === currentActorId ? 0 : 1;
+    return aOwn - bOwn;
+  });
 
   const [amountStr, setAmountStr] = useState('');
   const [currency, setCurrency] = useState<'JPY' | 'CNY'>('JPY');

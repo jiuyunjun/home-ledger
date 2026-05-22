@@ -39,9 +39,10 @@ type ExtractionResult struct {
 
 // PaymentMethodHint is passed to ExtractFromImage so the AI can match payment methods.
 type PaymentMethodHint struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"` // cash|paypay|credit_card|bank_account|other
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`      // cash|paypay|credit_card|bank_account|other
+	OwnerName string `json:"ownerName"` // display name of the actor who owns this PM
 }
 
 const systemPrompt = `You are a receipt parser for a private household accounting app used in Japan.
@@ -98,7 +99,9 @@ Rules (apply independently to each receipt):
 - transactionDate: use the date printed on the receipt. If unclear, use today.
 - paymentHint: Suica/PayPay→paypay; VISA/Master→credit_card; 現金→cash; else unknown.
 - suggestedPaymentMethodId: match the payment method used on the receipt to the provided list.
-  Use the "id" of the best match. If no list is provided or nothing matches, use "".
+  Each payment method has an ownerName indicating which household member owns it.
+  Prefer payment methods owned by the uploader (provided separately). Use the "id" of the best match.
+  If no list is provided or nothing matches, use "".
 - confidence: 1.0=all fields clearly visible; 0.5=partially legible; 0.2=mostly guessing.`
 
 const (

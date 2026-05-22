@@ -174,19 +174,29 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 
 	// Build payment method hint list for AI matching.
 	pms, _ := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
+	actors, _ := repo.ListActors(r.Context(), claims.HouseholdID)
+	actorName := make(map[string]string, len(actors))
+	for _, a := range actors {
+		actorName[a.ID] = a.DisplayName
+	}
 	pmHints := make([]ai.PaymentMethodHint, 0, len(pms))
 	for _, pm := range pms {
 		if pm.IsActive {
 			pmHints = append(pmHints, ai.PaymentMethodHint{
-				ID:   pm.ID,
-				Name: pm.Name,
-				Type: string(pm.Type),
+				ID:        pm.ID,
+				Name:      pm.Name,
+				Type:      string(pm.Type),
+				OwnerName: actorName[pm.OwnerActorID],
 			})
 		}
 	}
 
 	// Call OpenAI.
-	extracted, rawJSON, err := ai.ExtractFromImage(r.Context(), imageData, receipt.MIMEType, receipt.AIUserNote, gptModel, pmHints)
+	uploaderNote := receipt.AIUserNote
+	if uploaderName := actorName[claims.ActorID]; uploaderName != "" {
+		uploaderNote = "上传人：" + uploaderName + "\n" + uploaderNote
+	}
+	extracted, rawJSON, err := ai.ExtractFromImage(r.Context(), imageData, receipt.MIMEType, uploaderNote, gptModel, pmHints)
 
 	now := time.Now().UTC()
 	if err != nil {

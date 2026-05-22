@@ -66,14 +66,25 @@ func voiceEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pms, _ := repo.ListPaymentMethods(r.Context(), claims.HouseholdID)
+	actors, _ := repo.ListActors(r.Context(), claims.HouseholdID)
+	actorNameVoice := make(map[string]string, len(actors))
+	for _, a := range actors {
+		actorNameVoice[a.ID] = a.DisplayName
+	}
 	pmHints := make([]ai.PaymentMethodHint, 0, len(pms))
 	for _, pm := range pms {
 		if pm.IsActive {
-			pmHints = append(pmHints, ai.PaymentMethodHint{ID: pm.ID, Name: pm.Name, Type: string(pm.Type)})
+			pmHints = append(pmHints, ai.PaymentMethodHint{
+				ID:        pm.ID,
+				Name:      pm.Name,
+				Type:      string(pm.Type),
+				OwnerName: actorNameVoice[pm.OwnerActorID],
+			})
 		}
 	}
 
-	result, err := ai.ParseVoiceEntry(r.Context(), transcript, catHints, pmHints)
+	callerName := actorNameVoice[claims.ActorID]
+	result, err := ai.ParseVoiceEntry(r.Context(), transcript, callerName, catHints, pmHints)
 	if err != nil {
 		writeAppError(w, &domain.AppError{Code: "AI_PARSE_FAILED", Message: err.Error()})
 		return

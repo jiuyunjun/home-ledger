@@ -125,10 +125,14 @@ function PaymentMethodPicker({ currentId, onSelect, onClose }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {pms.map((pm) => {
           const selected = pm.id === currentId;
+          const owner = data.actor(pm.ownerActorId);
           return (
             <div key={pm.id} onClick={() => { onSelect(pm.id); onClose(); }}
               style={{ padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${selected ? T.accent : T.border}`, background: selected ? T.accentSoft : T.surface, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, color: T.ink, fontWeight: selected ? 600 : 400 }}>{pm.name}</span>
+              <div>
+                <span style={{ fontSize: 14, color: T.ink, fontWeight: selected ? 600 : 400 }}>{pm.name}</span>
+                {owner && <span style={{ fontSize: 11, color: T.textMute, marginLeft: 8 }}>{owner.displayName}</span>}
+              </div>
               {selected && <span style={{ fontSize: 12, color: T.accent }}>✓</span>}
             </div>
           );
