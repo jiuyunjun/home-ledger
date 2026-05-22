@@ -175,6 +175,7 @@ function EditSheet({ tx, onSave, onClose }: {
   const [exchangeRateStr, setExchangeRateStr] = useState(tx.exchangeRate ?? '');
   const [fromPmId, setFromPmId] = useState(tx.fromAccountId ?? '');
   const [toPmId, setToPmId] = useState(tx.toAccountId ?? '');
+  const [pmId, setPmId] = useState(tx.paymentMethodId ?? '');
   const [showCatPicker, setShowCatPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
@@ -213,9 +214,17 @@ function EditSheet({ tx, onSave, onClose }: {
         if (exchangeRateStr && exchangeRateStr !== (tx.exchangeRate ?? '')) patch.exchangeRate = exchangeRateStr;
       }
     } else {
+      const amt = Math.round(parseFloat(amountStr) || 0);
+      if (amt > 0 && amt !== tx.amount) patch.amount = amt;
       if (title !== (tx.title ?? '')) patch.title = title;
       if (merchantName !== (tx.merchantName ?? '')) patch.merchantName = merchantName;
       if (categoryId !== (tx.categoryId ?? '')) patch.categoryId = categoryId;
+      if (pmId && pmId !== (tx.paymentMethodId ?? '')) patch.paymentMethodId = pmId;
+      const selectedPm = activePms.find((p) => p.id === (pmId || tx.paymentMethodId));
+      if (selectedPm?.currency === 'CNY' && tx.currency === 'JPY') {
+        const cny = Math.round(parseFloat(convertedAmountStr) || 0);
+        if (cny > 0 && cny !== (tx.convertedAmount ?? 0)) { patch.convertedAmount = cny; patch.convertedCurrency = 'CNY'; }
+      }
     }
     try {
       await onSave(patch);
@@ -286,6 +295,35 @@ function EditSheet({ tx, onSave, onClose }: {
             </>
           ) : (
             <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>金额（{tx.currency}）</label>
+                <input type="text" inputMode="decimal" value={amountStr}
+                  onChange={e => setAmountStr(e.target.value.replace(/[^\d.]/g, ''))}
+                  style={{ ...inputStyle, fontFamily: NUM_FONT, fontSize: 18, fontWeight: 600 }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>支付方式</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {activePms.map((pm) => (
+                    <div key={pm.id} onClick={() => setPmId(pm.id)}
+                      style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer', background: (pmId || tx.paymentMethodId) === pm.id ? T.accent : T.surfaceAlt, color: (pmId || tx.paymentMethodId) === pm.id ? '#fff' : T.ink, border: `1px solid ${(pmId || tx.paymentMethodId) === pm.id ? T.accent : T.border}` }}>
+                      {pm.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {(() => {
+                const selectedPm = activePms.find((p) => p.id === (pmId || tx.paymentMethodId));
+                return selectedPm?.currency === 'CNY' && tx.currency === 'JPY' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>实付人民币（CNY）</label>
+                    <input type="text" inputMode="decimal" value={convertedAmountStr}
+                      onChange={e => setConvertedAmountStr(e.target.value.replace(/[^\d.]/g, ''))}
+                      placeholder="实际扣款人民币金额"
+                      style={{ ...inputStyle, fontFamily: NUM_FONT }} />
+                  </div>
+                ) : null;
+              })()}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 11, color: T.textSoft, fontWeight: 500 }}>店铺名称</label>
                 <input value={merchantName} onChange={e => setMerchantName(e.target.value)}

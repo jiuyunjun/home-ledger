@@ -163,16 +163,18 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		TransactionDate *string `json:"transactionDate"`
-		Amount          *int64  `json:"amount"`
-		Title           *string `json:"title"`
-		MerchantName    *string `json:"merchantName"`
-		Memo            *string `json:"memo"`
-		CategoryID      *string `json:"categoryId"`
-		FromAccountID   *string `json:"fromAccountId"`
-		ToAccountID     *string `json:"toAccountId"`
-		ConvertedAmount *int64  `json:"convertedAmount"`
-		ExchangeRate    *string `json:"exchangeRate"`
+		TransactionDate   *string `json:"transactionDate"`
+		Amount            *int64  `json:"amount"`
+		Title             *string `json:"title"`
+		MerchantName      *string `json:"merchantName"`
+		Memo              *string `json:"memo"`
+		CategoryID        *string `json:"categoryId"`
+		PaymentMethodID   *string `json:"paymentMethodId"`
+		FromAccountID     *string `json:"fromAccountId"`
+		ToAccountID       *string `json:"toAccountId"`
+		ConvertedAmount   *int64  `json:"convertedAmount"`
+		ConvertedCurrency *string `json:"convertedCurrency"`
+		ExchangeRate      *string `json:"exchangeRate"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAppError(w, domain.NewValidationError("invalid request body", ""))
@@ -202,6 +204,9 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	if req.CategoryID != nil {
 		updates["categoryId"] = *req.CategoryID
 	}
+	if req.PaymentMethodID != nil {
+		updates["paymentMethodId"] = *req.PaymentMethodID
+	}
 	if req.FromAccountID != nil {
 		updates["fromAccountId"] = *req.FromAccountID
 	}
@@ -210,6 +215,9 @@ func patchTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ConvertedAmount != nil {
 		updates["convertedAmount"] = *req.ConvertedAmount
+	}
+	if req.ConvertedCurrency != nil {
+		updates["convertedCurrency"] = *req.ConvertedCurrency
 	}
 	if req.ExchangeRate != nil {
 		updates["exchangeRate"] = *req.ExchangeRate
