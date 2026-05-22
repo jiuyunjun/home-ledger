@@ -98,7 +98,10 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const [merchantName, setMerchantName] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [saving, setSaving] = useState(false);
   const [convertedAmountStr, setConvertedAmountStr] = useState('');
   const [cnyRate, setCnyRate] = useState<number | null>(null);
@@ -315,7 +318,10 @@ function TransferForm() {
   const [toAmount, setToAmount] = useState('');
   const [rateStr, setRateStr] = useState('');
   const [rateFetching, setRateFetching] = useState(false);
-  const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
+  const [txDate, setTxDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 

@@ -180,6 +180,7 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		actorName[a.ID] = a.DisplayName
 	}
 	pmHints := make([]ai.PaymentMethodHint, 0, len(pms))
+	validPmIDs := make(map[string]struct{}, len(pms))
 	for _, pm := range pms {
 		if pm.IsActive {
 			pmHints = append(pmHints, ai.PaymentMethodHint{
@@ -188,6 +189,7 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 				Type:      string(pm.Type),
 				OwnerName: actorName[pm.OwnerActorID],
 			})
+			validPmIDs[pm.ID] = struct{}{}
 		}
 	}
 
@@ -216,7 +218,7 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 		catByName[c.Name] = c.ID
 	}
 
-	today := now.Format("2006-01-02")
+	today := now.In(jstZone).Format("2006-01-02")
 
 	// Create candidates for every receipt detected in the photo.
 	// Each physical receipt gets its own subReceiptID so the UI can group them separately.
@@ -258,6 +260,12 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 			items = []lineItem{{name: extracted.MerchantName, amount: extracted.TotalAmount, catName: "其他支出"}}
 		}
 
+		// AI may echo a PM ID that doesn't exist in this household — drop it so the
+		// confirm flow falls back to letting the user pick.
+		suggestedPmID := extracted.SuggestedPaymentMethodID
+		if _, ok := validPmIDs[suggestedPmID]; !ok {
+			suggestedPmID = ""
+		}
 		for _, it := range items {
 			c := &domain.TransactionCandidate{
 				ID:                       uuid.NewString(),
@@ -270,7 +278,7 @@ func extractReceipt(w http.ResponseWriter, r *http.Request) {
 				SuggestedAmount:          it.amount,
 				SuggestedCurrency:        currency,
 				SuggestedCategoryID:      catByName[it.catName],
-				SuggestedPaymentMethodID: extracted.SuggestedPaymentMethodID,
+				SuggestedPaymentMethodID: suggestedPmID,
 				StoreName:                extracted.MerchantName,
 				MerchantName:             it.name,
 				AIUserNote:               receipt.AIUserNote,

@@ -12,8 +12,11 @@ import (
 	"github.com/home-ledger/api/internal/repo"
 )
 
+// JST is the household's local timezone (Asia/Tokyo, fixed +09:00).
+var jstZone = time.FixedZone("JST", 9*60*60)
+
 func currentMonth() string {
-	return time.Now().UTC().Format("2006-01")
+	return time.Now().In(jstZone).Format("2006-01")
 }
 
 func listBudgets(w http.ResponseWriter, r *http.Request) {

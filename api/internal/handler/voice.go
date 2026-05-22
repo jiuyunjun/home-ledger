@@ -72,6 +72,7 @@ func voiceEntry(w http.ResponseWriter, r *http.Request) {
 		actorNameVoice[a.ID] = a.DisplayName
 	}
 	pmHints := make([]ai.PaymentMethodHint, 0, len(pms))
+	validPmIDs := make(map[string]struct{}, len(pms))
 	for _, pm := range pms {
 		if pm.IsActive {
 			pmHints = append(pmHints, ai.PaymentMethodHint{
@@ -80,6 +81,7 @@ func voiceEntry(w http.ResponseWriter, r *http.Request) {
 				Type:      string(pm.Type),
 				OwnerName: actorNameVoice[pm.OwnerActorID],
 			})
+			validPmIDs[pm.ID] = struct{}{}
 		}
 	}
 
@@ -90,14 +92,40 @@ func voiceEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Drop hallucinated PM IDs so the confirm UI shows an empty picker instead.
+	if _, ok := validPmIDs[result.PaymentMethodID]; !ok {
+		result.PaymentMethodID = ""
+	}
+
 	// Multi-item expense: create candidates and send to confirmation flow
 	if result.TransactionType == "expense" && len(result.LineItems) > 1 {
 		now := time.Now().UTC()
-		today := now.Format("2006-01-02")
+		today := now.In(jstZone).Format("2006-01-02")
 		subReceiptID := uuid.NewString()
 		currency := domain.Currency(result.Currency)
 		if currency == "" {
 			currency = domain.CurrencyJPY
+		}
+
+		// AI sometimes returns line items whose amounts don't sum to result.Amount.
+		// Rebalance the gap onto the largest line so totals stay consistent.
+		if result.Amount > 0 {
+			var sum int64
+			largestIdx := 0
+			for i, it := range result.LineItems {
+				sum += it.Amount
+				if it.Amount > result.LineItems[largestIdx].Amount {
+					largestIdx = i
+				}
+			}
+			diff := result.Amount - sum
+			if diff != 0 {
+				adjusted := result.LineItems[largestIdx].Amount + diff
+				if adjusted < 1 {
+					adjusted = 1
+				}
+				result.LineItems[largestIdx].Amount = adjusted
+			}
 		}
 
 		candidates := make([]*domain.TransactionCandidate, 0, len(result.LineItems))

@@ -29,8 +29,8 @@ func generateRecurringTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	today := time.Now().UTC().Format("2006-01-02")
 	now := time.Now().UTC()
+	today := now.In(jstZone).Format("2006-01-02")
 	created := 0
 
 	for _, rule := range rules {
