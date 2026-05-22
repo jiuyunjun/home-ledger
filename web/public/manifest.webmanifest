@@ -1,0 +1,20 @@
+{
+  "name": "家计簿",
+  "short_name": "家计簿",
+  "description": "家庭记账工具",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF8F2",
+  "theme_color": "#3D5A6C",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon-512.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

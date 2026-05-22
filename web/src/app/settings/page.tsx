@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
+import { nextCCSettlement } from '@/lib/ccBilling';
 import { PM_TYPE_COLOR } from '@/lib/data';
 import type { AccountType, Actor, Category, PaymentMethod } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
@@ -528,14 +529,29 @@ export default function SettingsPage() {
               const balanceColor = isCreditCard
                 ? (balance < 0 ? T.warning : T.success)
                 : (balance >= 0 ? T.ink : T.danger);
+              const ccInfo = isCreditCard && pm.isActive && balance < 0
+                ? nextCCSettlement(pm.billingDay ?? 0, pm.settlementDay ?? 0)
+                : null;
+              const urgent = ccInfo && ccInfo.daysUntil >= 0 && ccInfo.daysUntil <= 3;
               return (
                 <div key={pm.id} onClick={() => setEditPm(pm)}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: i === 0 ? 'none' : `1px solid ${T.borderSoft}`, cursor: 'pointer', opacity: pm.isActive ? 1 : 0.45 }}>
                   <div style={{ width: 36, height: 22, borderRadius: 4, background: color, color: '#fff', fontSize: 8, fontWeight: 700, letterSpacing: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{label}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, color: T.ink }}>{pm.name}</div>
+                    <div style={{ fontSize: 14, color: T.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>{pm.name}</span>
+                      {ccInfo && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 999, background: urgent ? T.dangerSoft : T.warningSoft, color: urgent ? T.danger : T.warning, fontFamily: NUM_FONT }}>
+                          {ccInfo.daysUntil < 0 ? `逾期 ${-ccInfo.daysUntil} 天` :
+                           ccInfo.daysUntil === 0 ? '今日还款' :
+                           `${ccInfo.daysUntil} 天后还`}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 10, color: T.textMute, marginTop: 1 }}>
-                      {!pm.isActive ? '已停用' : '基于交易记录'}
+                      {!pm.isActive ? '已停用' :
+                       ccInfo ? `${ccInfo.settleDate.slice(5).replace('-', '/')} 还款` :
+                       '基于交易记录'}
                     </div>
                   </div>
                   {pmBalancesLoading ? (

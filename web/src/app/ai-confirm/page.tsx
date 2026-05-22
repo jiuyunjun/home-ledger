@@ -12,6 +12,7 @@ import { TypeBadge } from '@/components/ui/TypeBadge';
 import { useData } from '@/context/DataContext';
 import { apiGet, apiPatch, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
+import { hapticSuccess, hapticTap, hapticWarn } from '@/lib/haptic';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -533,6 +534,7 @@ export default function AIConfirmPage() {
 
   async function handleConfirmAll() {
     if (acting || active.length === 0) return;
+    hapticSuccess();
     setActing(true);
     setConfirmError('');
     try {
@@ -590,6 +592,7 @@ export default function AIConfirmPage() {
 
   async function handleRegenerate(receiptId: string, model: 'fast' | 'accurate') {
     if (regeneratingReceiptId) return;
+    hapticTap();
     setRegeneratingReceiptId(receiptId);
     setConfirmError('');
     // Drop any in-flight edits / reject toggles for items under this receipt
@@ -617,6 +620,7 @@ export default function AIConfirmPage() {
 
   async function handleRejectAll() {
     if (acting) return;
+    hapticWarn();
     setActing(true);
     try {
       for (const c of candidates) {

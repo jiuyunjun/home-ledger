@@ -10,6 +10,7 @@ import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
 import { apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
+import { hapticSuccess } from '@/lib/haptic';
 import { PM_TYPE_COLOR } from '@/lib/data';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import type { CreateTransactionRequest } from '@/lib/types';
@@ -144,6 +145,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
 
   async function handleSave() {
     if (amount <= 0 || saving) return;
+    hapticSuccess();
     setSaving(true);
     try {
       const req: CreateTransactionRequest = {
@@ -389,6 +391,7 @@ function TransferForm() {
 
   async function handleSave() {
     if (fromAmt <= 0 || saving || isSamePm) return;
+    hapticSuccess();
     setSaving(true);
     try {
       const req: CreateTransactionRequest = {

@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
 import { apiDelete, apiGet, apiGetBlob, apiPatch, apiPost } from '@/lib/api';
+import { hapticWarn } from '@/lib/haptic';
 import { catDisplay } from '@/lib/catDisplay';
 import { T, NUM_FONT, CN_FONT } from '@/lib/tokens';
 import type { ApiTransaction } from '@/lib/types';
@@ -696,6 +697,7 @@ export default function TransactionsPage() {
   }
 
   async function handleConfirmDelete(txId: string) {
+    hapticWarn();
     await apiDelete(`/api/transactions/${txId}`);
     setTxs((prev) => prev.filter((t) => t.id !== txId));
     setExpanded(null);
