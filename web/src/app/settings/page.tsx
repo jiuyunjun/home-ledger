@@ -166,6 +166,7 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
   const data = useData();
   const [name, setName] = useState(pm.name);
   const [active, setActive] = useState(pm.isActive);
+  const [ownerActorId, setOwnerActorId] = useState(pm.ownerActorId ?? '');
   const [billingDay, setBillingDay] = useState(pm.billingDay ? String(pm.billingDay) : '');
   const [settlementDay, setSettlementDay] = useState(pm.settlementDay ? String(pm.settlementDay) : '');
   const [debitPmId, setDebitPmId] = useState(pm.debitPmId ?? '');
@@ -178,7 +179,7 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
   async function handleSave() {
     setSaving(true);
     try {
-      const patch: Record<string, unknown> = { name: name.trim(), isActive: active };
+      const patch: Record<string, unknown> = { name: name.trim(), isActive: active, ownerActorId };
       if (isCreditCard) {
         patch.billingDay = parseInt(billingDay) || 0;
         patch.settlementDay = parseInt(settlementDay) || 0;
@@ -208,6 +209,19 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
     <Sheet title="编辑支付方式" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <FieldRow label="名称" value={name} onChange={setName} />
+
+        <div>
+          <div style={{ fontSize: 11, color: T.textMute, marginBottom: 6 }}>所属人</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {data.actors.map((a) => (
+              <div key={a.id} onClick={() => setOwnerActorId(a.id)}
+                style={{ padding: '5px 12px', borderRadius: 999, border: `1.5px solid ${ownerActorId === a.id ? T.accent : T.border}`, background: ownerActorId === a.id ? T.accentSoft : T.surface, fontSize: 12, color: ownerActorId === a.id ? T.accent : T.textSoft, cursor: 'pointer', fontWeight: 500 }}>
+                {a.displayName}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {isCreditCard && (
           <>
             <div style={{ display: 'flex', gap: 8 }}>
