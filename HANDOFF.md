@@ -353,4 +353,4 @@ monthlyBudgets/{id}            MonthlyBudget
 
 ---
 
-*本文档由 Claude Sonnet 4.6 维护。*
+*本文档由 Claude Opus 4.7 维护，2026-05-22。*
