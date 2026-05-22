@@ -211,15 +211,16 @@ func getBudgetUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build per-category spend maps (expenses only).
-	catTotals := map[string]int64{}      // household-wide, keyed by categoryId
-	actorCatTotals := map[string]int64{} // keyed by "actorId:categoryId"
+	// Build per-(category,currency) spend maps so a JPY budget isn't polluted by
+	// CNY transactions (or vice versa).
+	catTotals := map[string]int64{}      // household-wide, keyed by "categoryId:currency"
+	actorCatTotals := map[string]int64{} // keyed by "actorId:categoryId:currency"
 	for _, tx := range txs {
 		if tx.TransactionType != domain.TxExpense {
 			continue
 		}
-		catTotals[tx.CategoryID] += tx.Amount
-		actorCatTotals[fmt.Sprintf("%s:%s", tx.ActorID, tx.CategoryID)] += tx.Amount
+		catTotals[fmt.Sprintf("%s:%s", tx.CategoryID, tx.Currency)] += tx.Amount
+		actorCatTotals[fmt.Sprintf("%s:%s:%s", tx.ActorID, tx.CategoryID, tx.Currency)] += tx.Amount
 	}
 
 	items := make([]domain.BudgetUsageItem, 0, len(budgets))
@@ -230,9 +231,9 @@ func getBudgetUsage(w http.ResponseWriter, r *http.Request) {
 		var used int64
 		switch b.ActorScope {
 		case domain.ScopeActor:
-			used = actorCatTotals[fmt.Sprintf("%s:%s", b.ActorID, b.CategoryID)]
+			used = actorCatTotals[fmt.Sprintf("%s:%s:%s", b.ActorID, b.CategoryID, b.Currency)]
 		default: // household or all
-			used = catTotals[b.CategoryID]
+			used = catTotals[fmt.Sprintf("%s:%s", b.CategoryID, b.Currency)]
 		}
 
 		remaining := b.LimitAmount - used

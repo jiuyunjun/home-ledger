@@ -512,6 +512,11 @@ export default function AIConfirmPage() {
       const groupCnyMap = new Map<string, Map<string, number>>();
       for (const group of receiptGroups) {
         const rEdit = receiptEdits[group.key] ?? {};
+        // If user changed PM away from CNY after entering a CNY total, drop the
+        // stale CNY value so balances aren't corrupted.
+        const effectivePmId = rEdit.suggestedPaymentMethodId ?? group.paymentMethodId;
+        const effectivePm = data.paymentMethod(effectivePmId);
+        if (effectivePm?.currency !== 'CNY') continue;
         const totalCny = Math.round(parseFloat(rEdit.convertedAmountStr ?? '') || 0);
         if (totalCny <= 0) continue;
         const activeGroupItems = group.items.filter((c) => !rejected.has(c.id));

@@ -156,8 +156,8 @@ type Category struct {
 	UpdatedAt        time.Time    `json:"updatedAt" firestore:"updatedAt"`
 }
 
-// Amount stores money as integer minor units.
-// JPY: integer yen. CNY: integer fen (¥1.00 = 100 fen).
+// Amount stores money as integer display units.
+// JPY: integer yen. CNY: integer yuan.
 type Amount struct {
 	Value    int64    `json:"value" firestore:"value"`
 	Currency Currency `json:"currency" firestore:"currency"`

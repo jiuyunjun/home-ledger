@@ -72,12 +72,26 @@ func generateRecurringTransactions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"created": created})
 }
 
-// advanceOneMonth returns the target dayOfMonth in the following month.
+// advanceOneMonth returns the target dayOfMonth in the following month, clamped
+// to that month's last day so day 31 doesn't overflow into the next month.
 func advanceOneMonth(dateStr string, dayOfMonth int) string {
 	t, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		return dateStr
 	}
-	next := time.Date(t.Year(), t.Month()+1, dayOfMonth, 0, 0, 0, 0, time.UTC)
+	year, month := t.Year(), t.Month()+1
+	if month > 12 {
+		year++
+		month = 1
+	}
+	if dayOfMonth < 1 {
+		dayOfMonth = t.Day()
+	}
+	// Last day of target month = day 0 of the month after.
+	lastDay := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	if dayOfMonth > lastDay {
+		dayOfMonth = lastDay
+	}
+	next := time.Date(year, month, dayOfMonth, 0, 0, 0, 0, time.UTC)
 	return next.Format("2006-01-02")
 }

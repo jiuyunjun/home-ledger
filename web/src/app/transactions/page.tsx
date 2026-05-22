@@ -23,6 +23,8 @@ interface PendingRule {
   actorId: string;
   categoryId: string;
   paymentMethodId: string;
+  fromAccountId?: string;
+  toAccountId?: string;
   dayOfMonth: number;
   nextRunDate: string;
   isActive: boolean;
@@ -221,9 +223,14 @@ function EditSheet({ tx, onSave, onClose }: {
       if (categoryId !== (tx.categoryId ?? '')) patch.categoryId = categoryId;
       if (pmId && pmId !== (tx.paymentMethodId ?? '')) patch.paymentMethodId = pmId;
       const selectedPm = activePms.find((p) => p.id === (pmId || tx.paymentMethodId));
-      if (selectedPm?.currency === 'CNY' && tx.currency === 'JPY') {
+      const isCnyCross = selectedPm?.currency === 'CNY' && tx.currency === 'JPY';
+      if (isCnyCross) {
         const cny = Math.round(parseFloat(convertedAmountStr) || 0);
         if (cny > 0 && cny !== (tx.convertedAmount ?? 0)) { patch.convertedAmount = cny; patch.convertedCurrency = 'CNY'; }
+      } else if ((tx.convertedAmount ?? 0) > 0) {
+        // PM no longer CNY → wipe stale cross-currency fields so balance is right.
+        patch.convertedAmount = 0;
+        patch.convertedCurrency = '';
       }
     }
     try {
@@ -556,7 +563,6 @@ export default function TransactionsPage() {
   const { state } = useApp();
   const data = useData();
   const searchParams = useSearchParams();
-  const initDone = useRef(false);
   const [month, setMonth] = useState(todayMonth);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>('all');
@@ -564,10 +570,14 @@ export default function TransactionsPage() {
   const [filterPmIds, setFilterPmIds] = useState<string[]>([]);
   const [filterActorIds, setFilterActorIds] = useState<string[]>([]);
   const [filterCatIds, setFilterCatIds] = useState<string[]>([]);
+  // Track last-applied search string so user-cleared filters don't get re-applied,
+  // but a fresh navigation with different params (e.g. another category) does.
+  const lastAppliedSearch = useRef<string | null>(null);
 
   useEffect(() => {
-    if (initDone.current) return;
-    initDone.current = true;
+    const current = searchParams.toString();
+    if (lastAppliedSearch.current === current) return;
+    lastAppliedSearch.current = current;
     const cat = searchParams.get('cat');
     const m = searchParams.get('month');
     if (cat) setFilterCatIds([cat]);
@@ -641,17 +651,24 @@ export default function TransactionsPage() {
   }
 
   async function handleExecuteRule(rule: PendingRule) {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const body: Record<string, unknown> = {
+      transactionType: rule.transactionType,
+      transactionDate: today,
+      amount: rule.amount,
+      currency: rule.currency,
+      title: rule.title,
+    };
+    if (rule.transactionType === 'transfer') {
+      body.fromAccountId = rule.fromAccountId ?? '';
+      body.toAccountId = rule.toAccountId ?? '';
+    } else {
+      body.categoryId = rule.categoryId;
+      body.paymentMethodId = rule.paymentMethodId;
+    }
     try {
-      await apiPost('/api/transactions', {
-        transactionType: rule.transactionType,
-        transactionDate: today,
-        amount: rule.amount,
-        currency: rule.currency,
-        categoryId: rule.categoryId,
-        paymentMethodId: rule.paymentMethodId,
-        title: rule.title,
-      });
+      await apiPost('/api/transactions', body);
       setRuleExpanded(null);
       setRuleExecuting(null);
       await loadTxs();

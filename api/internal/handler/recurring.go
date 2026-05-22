@@ -130,6 +130,8 @@ func patchRecurringRule(w http.ResponseWriter, r *http.Request) {
 		ActorID         *string `json:"actorId"`
 		CategoryID      *string `json:"categoryId"`
 		PaymentMethodID *string `json:"paymentMethodId"`
+		FromAccountID   *string `json:"fromAccountId"`
+		ToAccountID     *string `json:"toAccountId"`
 		DayOfMonth      *int    `json:"dayOfMonth"`
 		NextRunDate     *string `json:"nextRunDate"`
 		IsActive        *bool   `json:"isActive"`
@@ -147,6 +149,8 @@ func patchRecurringRule(w http.ResponseWriter, r *http.Request) {
 	if req.ActorID != nil         { updates["actorId"] = *req.ActorID }
 	if req.CategoryID != nil      { updates["categoryId"] = *req.CategoryID }
 	if req.PaymentMethodID != nil { updates["paymentMethodId"] = *req.PaymentMethodID }
+	if req.FromAccountID != nil   { updates["fromAccountId"] = *req.FromAccountID }
+	if req.ToAccountID != nil     { updates["toAccountId"] = *req.ToAccountID }
 	if req.DayOfMonth != nil      { updates["dayOfMonth"] = *req.DayOfMonth }
 	if req.NextRunDate != nil     { updates["nextRunDate"] = *req.NextRunDate }
 	if req.IsActive != nil        { updates["isActive"] = *req.IsActive }
