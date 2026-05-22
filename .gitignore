@@ -32,3 +32,7 @@ dist/
 # IDE
 .idea/
 .vscode/
+
+# VSCode "Local History" extension — keeps timestamped copies of edited files
+# (including .env), do NOT commit
+.history/
