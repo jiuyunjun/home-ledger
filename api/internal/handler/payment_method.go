@@ -160,7 +160,11 @@ func getPaymentMethodBalances(w http.ResponseWriter, r *http.Request) {
 			}
 		case domain.TxExpense:
 			if tx.PaymentMethodID != "" {
-				balances[tx.PaymentMethodID] -= tx.Amount
+				deduct := tx.Amount
+				if tx.ConvertedAmount > 0 {
+					deduct = tx.ConvertedAmount
+				}
+				balances[tx.PaymentMethodID] -= deduct
 			}
 		case domain.TxTransfer:
 			// fromAccountId/toAccountId now store PM IDs directly

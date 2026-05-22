@@ -47,6 +47,7 @@ interface ReceiptEdit {
   suggestedActorId?: string;
   suggestedCurrency?: string;
   suggestedPaymentMethodId?: string;
+  convertedAmountStr?: string;
 }
 
 // ─── Bottom-sheet pickers ────────────────────────────────────────────────────
@@ -266,6 +267,7 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onR
   const pmId     = receiptEdit.suggestedPaymentMethodId ?? group.paymentMethodId;
   const actor    = data.actor(actorId);
   const pm       = data.paymentMethod(pmId);
+  const showCnyField = pm?.currency === 'CNY' && currency === 'JPY' && group.type === 'expense';
 
   const activeItems = group.items.filter((c) => !rejected.has(c.id));
   const total = activeItems.reduce((s, c) => s + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount), 0);
@@ -371,6 +373,22 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, onItemEdit, onR
             <span style={{ color: T.textDim, fontSize: 12 }}>›</span>
           </div>
         ))}
+        {showCnyField && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: `1px solid ${T.borderSoft}` }}>
+            <div style={{ width: 32, fontSize: 11, color: T.textSoft, fontWeight: 500 }}>实付</div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={receiptEdit.convertedAmountStr ?? ''}
+                onChange={(e) => onReceiptEdit({ convertedAmountStr: e.target.value.replace(/[^\d.]/g, '') })}
+                placeholder="人民币合计（可选）"
+                style={{ flex: 1, border: `1px solid ${T.border}`, borderRadius: 8, padding: '6px 10px', fontSize: 13, color: T.ink, outline: 'none', background: T.surfaceAlt, fontFamily: NUM_FONT }}
+              />
+              <span style={{ fontSize: 11, color: T.textMute, flexShrink: 0, fontFamily: NUM_FONT }}>CNY</span>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Category distribution */}
@@ -486,6 +504,26 @@ export default function AIConfirmPage() {
     setActing(true);
     setConfirmError('');
     try {
+      // Pre-compute proportional CNY amounts per receipt group
+      const groupCnyMap = new Map<string, Map<string, number>>();
+      for (const group of receiptGroups) {
+        const rEdit = receiptEdits[group.key] ?? {};
+        const totalCny = Math.round(parseFloat(rEdit.convertedAmountStr ?? '') || 0);
+        if (totalCny <= 0) continue;
+        const activeGroupItems = group.items.filter((c) => !rejected.has(c.id));
+        const groupTotal = activeGroupItems.reduce((s, c) => s + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount), 0);
+        if (groupTotal <= 0) continue;
+        const alloc = new Map<string, number>();
+        let remaining = totalCny;
+        activeGroupItems.forEach((c, idx) => {
+          const amt = itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount;
+          const share = idx === activeGroupItems.length - 1 ? remaining : Math.round(totalCny * amt / groupTotal);
+          alloc.set(c.id, share);
+          remaining -= share;
+        });
+        groupCnyMap.set(group.key, alloc);
+      }
+
       for (const c of active) {
         const rEdit = receiptEdits[c.subReceiptId ?? c.receiptId] ?? {};
         const iEdit = itemEdits[c.id] ?? {};
@@ -497,6 +535,8 @@ export default function AIConfirmPage() {
         if (iEdit.merchantName !== undefined)        body.merchantName            = iEdit.merchantName;
         if (iEdit.suggestedAmount !== undefined)     body.suggestedAmount         = iEdit.suggestedAmount;
         if (iEdit.suggestedCategoryId !== undefined) body.suggestedCategoryId     = iEdit.suggestedCategoryId;
+        const cnyAlloc = groupCnyMap.get(c.subReceiptId ?? c.receiptId)?.get(c.id);
+        if (cnyAlloc && cnyAlloc > 0) { body.convertedAmount = cnyAlloc; body.convertedCurrency = 'CNY'; }
         if (Object.keys(body).length > 0) await apiPatch(`/api/transaction-candidates/${c.id}`, body);
         await apiPost(`/api/transaction-candidates/${c.id}/confirm`, {});
       }

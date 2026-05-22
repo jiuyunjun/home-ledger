@@ -95,6 +95,8 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   const [note, setNote] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
+  const [convertedAmountStr, setConvertedAmountStr] = useState('');
+  const [cnyRate, setCnyRate] = useState<number | null>(null);
 
   // Apply voice prefill from sessionStorage once on mount
   useEffect(() => {
@@ -117,8 +119,20 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   // Set defaults once data loads
   const defaultCatId = catId || cats[0]?.id || '';
   const defaultPmId = pmId || pms[0]?.id || '';
+  const selectedPm = pms.find((p) => p.id === defaultPmId);
+  const showCnyField = !isIncome && selectedPm?.currency === 'CNY' && currency === 'JPY';
 
   const amount = Math.round(parseFloat(amountStr) || 0);
+
+  // Fetch rate and auto-estimate CNY when showCnyField becomes active
+  useEffect(() => {
+    if (!showCnyField) { setConvertedAmountStr(''); setCnyRate(null); return; }
+    fetchExchangeRate('JPY', 'CNY').then((rate) => {
+      setCnyRate(rate);
+      if (rate && amount > 0) setConvertedAmountStr(parseFloat((amount * rate).toFixed(2)).toString());
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCnyField]);
 
   async function handleSave() {
     if (amount <= 0 || saving) return;
@@ -136,6 +150,10 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
         title: title || cats.find((c) => c.id === defaultCatId)?.name || '',
         memo: note,
       };
+      if (showCnyField) {
+        const cny = Math.round(parseFloat(convertedAmountStr) || 0);
+        if (cny > 0) { req.convertedAmount = cny; req.convertedCurrency = 'CNY'; }
+      }
       await apiPost('/api/transactions', req);
       router.push('/transactions');
     } catch (e) {
@@ -165,7 +183,13 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
             value={amountStr}
             onChange={(e) => {
               const v = e.target.value.replace(/[^\d.]/g, '');
-              if ((v.match(/\./g) ?? []).length <= 1) setAmountStr(v);
+              if ((v.match(/\./g) ?? []).length <= 1) {
+                setAmountStr(v);
+                if (showCnyField && cnyRate) {
+                  const a = parseFloat(v) || 0;
+                  setConvertedAmountStr(a > 0 ? parseFloat((a * cnyRate).toFixed(2)).toString() : '');
+                }
+              }
             }}
             placeholder="0"
             style={{ fontFamily: NUM_FONT, fontSize: 44, fontWeight: 600, color: T.ink, letterSpacing: -1, lineHeight: 1, border: 'none', outline: 'none', background: 'transparent', width: '7ch', textAlign: 'center', padding: 0, caretColor: accentColor }}
@@ -205,6 +229,23 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
               <PmChip key={pm.id} name={pm.name} type={pm.type} selected={(pmId || defaultPmId) === pm.id} onSelect={() => setPmId(pm.id)} />
             ))}
           </div>
+        </Row>
+      )}
+
+      {showCnyField && (
+        <Row label="实付人民币">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={convertedAmountStr}
+              onChange={(e) => setConvertedAmountStr(e.target.value.replace(/[^\d.]/g, ''))}
+              placeholder="自动估算，可手动修改"
+              style={{ flex: 1, padding: '10px 12px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box', fontFamily: NUM_FONT }}
+            />
+            <span style={{ fontSize: 12, color: T.textMute, flexShrink: 0, fontFamily: NUM_FONT }}>CNY</span>
+          </div>
+          <div style={{ fontSize: 10, color: T.textMute, marginTop: 4 }}>用于人民币账户余额统计，不影响分类支出汇总</div>
         </Row>
       )}
 

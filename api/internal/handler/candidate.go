@@ -58,6 +58,8 @@ func patchCandidate(w http.ResponseWriter, r *http.Request) {
 		SuggestedPaymentMethodID *string `json:"suggestedPaymentMethodId"`
 		StoreName                *string `json:"storeName"`
 		MerchantName             *string `json:"merchantName"`
+		ConvertedAmount          *int64  `json:"convertedAmount"`
+		ConvertedCurrency        *string `json:"convertedCurrency"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAppError(w, domain.NewValidationError("invalid request body", ""))
@@ -77,6 +79,8 @@ func patchCandidate(w http.ResponseWriter, r *http.Request) {
 	if req.SuggestedPaymentMethodID != nil { updates["suggestedPaymentMethodId"]    = *req.SuggestedPaymentMethodID }
 	if req.StoreName != nil                { updates["storeName"]                   = *req.StoreName }
 	if req.MerchantName != nil             { updates["merchantName"]                = *req.MerchantName }
+	if req.ConvertedAmount != nil          { updates["convertedAmount"]             = *req.ConvertedAmount }
+	if req.ConvertedCurrency != nil        { updates["convertedCurrency"]           = *req.ConvertedCurrency }
 
 	if err := repo.UpdateCandidate(r.Context(), id, updates); err != nil {
 		writeAppError(w, domain.NewInternalError(err))
@@ -111,22 +115,24 @@ func confirmCandidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := &domain.Transaction{
-		ID:              uuid.NewString(),
-		HouseholdID:     claims.HouseholdID,
-		ActorID:         actorID,
-		TransactionType: c.SuggestedType,
-		TransactionDate: c.SuggestedDate,
-		Amount:          c.SuggestedAmount,
-		Currency:        c.SuggestedCurrency,
-		CategoryID:      c.SuggestedCategoryID,
-		PaymentMethodID: c.SuggestedPaymentMethodID,
-		MerchantName:    c.StoreName,
-		Title:           c.MerchantName,
-		Source:          domain.SourceAIReceipt,
-		ReceiptID:       c.ReceiptID,
-		CreatedBy:       claims.UID,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                uuid.NewString(),
+		HouseholdID:       claims.HouseholdID,
+		ActorID:           actorID,
+		TransactionType:   c.SuggestedType,
+		TransactionDate:   c.SuggestedDate,
+		Amount:            c.SuggestedAmount,
+		Currency:          c.SuggestedCurrency,
+		ConvertedAmount:   c.ConvertedAmount,
+		ConvertedCurrency: c.ConvertedCurrency,
+		CategoryID:        c.SuggestedCategoryID,
+		PaymentMethodID:   c.SuggestedPaymentMethodID,
+		MerchantName:      c.StoreName,
+		Title:             c.MerchantName,
+		Source:            domain.SourceAIReceipt,
+		ReceiptID:         c.ReceiptID,
+		CreatedBy:         claims.UID,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 	if err := repo.CreateTransaction(r.Context(), tx); err != nil {
 		writeAppError(w, domain.NewInternalError(err))
