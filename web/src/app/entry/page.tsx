@@ -225,7 +225,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
       {cats.length > 0 && (
         <Row label={isIncome ? '入账分类' : '分类'}>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(5, cats.length)}, 1fr)`, gap: 6 }}>
-            {cats.slice(0, 10).map((c) => (
+            {cats.map((c) => (
               <CatChip key={c.id} name={c.name} selected={(catId || defaultCatId) === c.id} onSelect={() => setCatId(c.id)} />
             ))}
           </div>

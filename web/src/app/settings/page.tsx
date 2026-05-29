@@ -15,7 +15,7 @@ import { PM_TYPE_COLOR } from '@/lib/data';
 import type { AccountType, Actor, Category, PaymentMethod } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // ─── Bottom-sheet primitives ──────────────────────────────────────────────────
 
@@ -173,6 +173,7 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
   const [debitPmId, setDebitPmId] = useState(pm.debitPmId ?? '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const isCreditCard = pm.type === 'credit_card';
 
   const debitablePms = data.paymentMethods.filter((p) => p.isActive && p.id !== pm.id && p.type !== 'credit_card');
@@ -195,7 +196,6 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
   }
 
   async function handleDelete() {
-    if (!confirm('删除此支付方式？')) return;
     setDeleting(true);
     try {
       await apiDelete(`/api/payment-methods/${pm.id}`);
@@ -265,9 +265,18 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
         <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving || deleting}>
           {saving ? '保存中…' : '保存'}
         </Button>
-        <Button variant="danger" size="md" style={{ width: '100%' }} onClick={handleDelete} disabled={saving || deleting}>
-          {deleting ? '删除中…' : '删除'}
-        </Button>
+        {!confirmDel ? (
+          <Button variant="danger" size="md" style={{ width: '100%' }} onClick={() => setConfirmDel(true)} disabled={saving || deleting}>
+            删除
+          </Button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" size="md" style={{ flex: 1 }} onClick={() => setConfirmDel(false)} disabled={deleting}>取消</Button>
+            <Button variant="danger" size="md" style={{ flex: 1 }} onClick={handleDelete} disabled={deleting}>
+              {deleting ? '删除中…' : '确认删除'}
+            </Button>
+          </div>
+        )}
       </div>
     </Sheet>
   );
@@ -343,6 +352,7 @@ function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: 
   const [name, setName] = useState(cat.name);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -357,8 +367,6 @@ function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: 
   }
 
   async function handleDelete() {
-    if (cat.isDefault) { alert('系统默认分类不可删除'); return; }
-    if (!confirm(`删除分类「${cat.name}」？`)) return;
     setDeleting(true);
     try {
       await apiDelete(`/api/categories/${cat.id}`);
@@ -376,9 +384,20 @@ function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: 
         <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving || deleting || !name.trim()}>
           {saving ? '保存中…' : '保存'}
         </Button>
-        <Button variant="danger" size="md" style={{ width: '100%' }} onClick={handleDelete} disabled={saving || deleting || cat.isDefault}>
-          {deleting ? '删除中…' : cat.isDefault ? '默认分类不可删除' : '删除此分类'}
-        </Button>
+        {cat.isDefault ? (
+          <Button variant="danger" size="md" style={{ width: '100%' }} disabled>默认分类不可删除</Button>
+        ) : !confirmDel ? (
+          <Button variant="danger" size="md" style={{ width: '100%' }} onClick={() => setConfirmDel(true)} disabled={saving || deleting}>
+            删除此分类
+          </Button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" size="md" style={{ flex: 1 }} onClick={() => setConfirmDel(false)} disabled={deleting}>取消</Button>
+            <Button variant="danger" size="md" style={{ flex: 1 }} onClick={handleDelete} disabled={deleting}>
+              {deleting ? '删除中…' : '确认删除'}
+            </Button>
+          </div>
+        )}
       </div>
     </Sheet>
   );
@@ -417,6 +436,110 @@ function AddCategorySheet({ type, onClose, onSaved }: { type: 'expense' | 'incom
   );
 }
 
+// ─── Reorder categories sheet ─────────────────────────────────────────────────
+
+const ROW_H = 50; // fixed row height (px) — drag math snaps to this
+
+function arrayMove<T>(arr: T[], from: number, to: number): T[] {
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+function ReorderCategorySheet({ type, cats, onClose, onSaved }: {
+  type: 'expense' | 'income';
+  cats: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [items, setItems] = useState<Category[]>(cats);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const startY = useRef(0);
+
+  // Where the dragged row would land, derived from how far it's been dragged.
+  const target = dragIndex === null
+    ? null
+    : Math.max(0, Math.min(items.length - 1, dragIndex + Math.round(offset / ROW_H)));
+
+  function begin(e: React.PointerEvent, index: number) {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    startY.current = e.clientY;
+    setDragIndex(index);
+    setOffset(0);
+  }
+  function moveTo(e: React.PointerEvent) {
+    if (dragIndex === null) return;
+    setOffset(e.clientY - startY.current);
+  }
+  function end() {
+    if (dragIndex !== null && target !== null && target !== dragIndex) {
+      setItems((prev) => arrayMove(prev, dragIndex, target));
+    }
+    setDragIndex(null);
+    setOffset(0);
+  }
+
+  // Non-dragged rows slide one slot to open a gap for the dragged row.
+  function shift(j: number): number {
+    if (dragIndex === null || target === null) return 0;
+    if (j === dragIndex) return offset;
+    if (dragIndex < target && j > dragIndex && j <= target) return -ROW_H;
+    if (dragIndex > target && j >= target && j < dragIndex) return ROW_H;
+    return 0;
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await Promise.all(
+        items
+          .map((c, i) => (c.sortOrder === i ? null : apiPatch(`/api/categories/${c.id}`, { sortOrder: i })))
+          .filter((p): p is Promise<unknown> => p !== null)
+      );
+      onSaved();
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Sheet title={`调整${type === 'expense' ? '支出' : '入账'}分类顺序`} onClose={onClose}>
+      <div style={{ fontSize: 11, color: T.textMute, textAlign: 'center', marginBottom: 8 }}>按住 ≡ 拖动调整顺序</div>
+      <div style={{ position: 'relative', maxHeight: '50vh', overflowY: 'auto' }}>
+        {items.map((c, j) => {
+          const { mark, tint } = catDisplay(c.name);
+          const dragging = j === dragIndex;
+          return (
+            <div key={c.id}
+              style={{
+                height: ROW_H, display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px',
+                transform: `translateY(${shift(j)}px)`,
+                transition: dragging ? 'none' : 'transform 0.18s ease',
+                position: 'relative', zIndex: dragging ? 2 : 1,
+                background: dragging ? T.surface : 'transparent',
+                boxShadow: dragging ? '0 6px 18px rgba(0,0,0,0.16)' : 'none',
+                borderRadius: 10,
+              }}>
+              <div onPointerDown={(e) => begin(e, j)} onPointerMove={moveTo} onPointerUp={end} onPointerCancel={end}
+                style={{ touchAction: 'none', cursor: 'grab', padding: '10px 6px', color: T.textDim, fontSize: 18, flexShrink: 0, lineHeight: 1 }}>≡</div>
+              <div style={{ width: 26, height: 26, borderRadius: 7, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontFamily: CN_FONT, fontWeight: 600, color: T.ink, flexShrink: 0 }}>{mark}</div>
+              <span style={{ fontSize: 14, color: T.ink }}>{c.name}</span>
+            </div>
+          );
+        })}
+      </div>
+      <Button variant="primary" size="lg" style={{ width: '100%', marginTop: 12 }} onClick={save} disabled={saving}>
+        {saving ? '保存中…' : '保存顺序'}
+      </Button>
+    </Sheet>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -429,6 +552,7 @@ export default function SettingsPage() {
   const [showAddPm, setShowAddPm] = useState(false);
   const [editCat, setEditCat] = useState<Category | null>(null);
   const [addCatType, setAddCatType] = useState<'expense' | 'income' | null>(null);
+  const [reorderType, setReorderType] = useState<'expense' | 'income' | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [pmBalances, setPmBalances] = useState<Record<string, number>>({});
   const [pmBalancesLoading, setPmBalancesLoading] = useState(true);
@@ -466,6 +590,14 @@ export default function SettingsPage() {
       {showAddPm && <AddPaymentMethodSheet onClose={() => setShowAddPm(false)} onSaved={data.refresh} />}
       {editCat && <EditCategorySheet cat={editCat} onClose={() => setEditCat(null)} onSaved={data.refresh} />}
       {addCatType && <AddCategorySheet type={addCatType} onClose={() => setAddCatType(null)} onSaved={data.refresh} />}
+      {reorderType && (
+        <ReorderCategorySheet
+          type={reorderType}
+          cats={reorderType === 'expense' ? expenseCats : incomeCats}
+          onClose={() => setReorderType(null)}
+          onSaved={data.refresh}
+        />
+      )}
 
       <AppBar title="设置" />
 
@@ -580,7 +712,12 @@ export default function SettingsPage() {
 
         {/* Expense categories */}
         <SectionLabel right={
-          <span onClick={() => setAddCatType('expense')} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
+          <span style={{ display: 'inline-flex', gap: 14 }}>
+            {expenseCats.length > 1 && (
+              <span onClick={() => setReorderType('expense')} style={{ color: T.textSoft, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>排序</span>
+            )}
+            <span onClick={() => setAddCatType('expense')} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
+          </span>
         }>支出分类</SectionLabel>
         <Card pad={12} style={{ marginBottom: 8 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -599,7 +736,12 @@ export default function SettingsPage() {
 
         {/* Income categories */}
         <SectionLabel right={
-          <span onClick={() => setAddCatType('income')} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
+          <span style={{ display: 'inline-flex', gap: 14 }}>
+            {incomeCats.length > 1 && (
+              <span onClick={() => setReorderType('income')} style={{ color: T.textSoft, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>排序</span>
+            )}
+            <span onClick={() => setAddCatType('income')} style={{ color: T.accent, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+ 添加</span>
+          </span>
         }>入账分类</SectionLabel>
         <Card pad={12} style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

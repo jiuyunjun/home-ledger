@@ -183,6 +183,7 @@ type Transaction struct {
 	Memo              string            `json:"memo,omitempty" firestore:"memo,omitempty"`
 	Source            TransactionSource `json:"source" firestore:"source"`
 	ReceiptID         string            `json:"receiptId,omitempty" firestore:"receiptId,omitempty"`
+	RecurringRuleID   string            `json:"recurringRuleId,omitempty" firestore:"recurringRuleId,omitempty"`
 	CreatedBy         string            `json:"createdBy" firestore:"createdBy"`
 	CreatedAt         time.Time         `json:"createdAt" firestore:"createdAt"`
 	UpdatedAt         time.Time         `json:"updatedAt" firestore:"updatedAt"`

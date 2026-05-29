@@ -601,9 +601,15 @@ export default function TransactionsPage() {
 
   async function loadTxs() {
     setLoading(true);
-    const params = new URLSearchParams({ month });
-    if (state.currentRole) params.set('actorId', state.currentRole);
     try {
+      // Materialize any due recurring rules before fetching so today's auto-runs
+      // show up. Idempotent server-side; safe to call on every load.
+      if (month === currentMonth) {
+        try { await apiPost('/api/jobs/generate-recurring-transactions', {}); } catch { /* non-fatal */ }
+      }
+
+      const params = new URLSearchParams({ month });
+      if (state.currentRole) params.set('actorId', state.currentRole);
       const [txData, balances] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?${params}`),
         apiGet<Record<string, number>>('/api/payment-methods/balances'),
@@ -613,10 +619,11 @@ export default function TransactionsPage() {
 
       if (month === currentMonth) {
         const rules = await apiGet<PendingRule[]>('/api/recurring-rules');
-        const todayDayOfMonth = new Date().getDate();
+        // Pending = active rules still due this month (nextRunDate in current month).
+        // Auto-run occurrences have already advanced nextRunDate to next month.
         setPendingRules(
-          rules.filter((r) => r.isActive && r.dayOfMonth >= todayDayOfMonth)
-            .sort((a, b) => a.dayOfMonth - b.dayOfMonth)
+          rules.filter((r) => r.isActive && r.nextRunDate && r.nextRunDate.startsWith(currentMonth))
+            .sort((a, b) => a.nextRunDate.localeCompare(b.nextRunDate))
         );
       } else {
         setPendingRules([]);
@@ -652,24 +659,10 @@ export default function TransactionsPage() {
   }
 
   async function handleExecuteRule(rule: PendingRule) {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const body: Record<string, unknown> = {
-      transactionType: rule.transactionType,
-      transactionDate: today,
-      amount: rule.amount,
-      currency: rule.currency,
-      title: rule.title,
-    };
-    if (rule.transactionType === 'transfer') {
-      body.fromAccountId = rule.fromAccountId ?? '';
-      body.toAccountId = rule.toAccountId ?? '';
-    } else {
-      body.categoryId = rule.categoryId;
-      body.paymentMethodId = rule.paymentMethodId;
-    }
     try {
-      await apiPost('/api/transactions', body);
+      // Server builds the transaction from the rule (dated today) and advances
+      // nextRunDate atomically, so it can't be executed twice this cycle.
+      await apiPost(`/api/recurring-rules/${rule.id}/execute`, {});
       setRuleExpanded(null);
       setRuleExecuting(null);
       await loadTxs();

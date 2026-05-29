@@ -344,13 +344,15 @@ export default function FixedPage() {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth() + 1;
-    const runDay = Math.min(dayOfMonth, 28);
     // Use current month if the scheduled day hasn't passed yet, otherwise next month
     let targetYear = year, targetMonth = month;
     if (dayOfMonth < today.getDate()) {
       targetMonth = month === 12 ? 1 : month + 1;
       targetYear = month === 12 ? year + 1 : year;
     }
+    // Clamp to the target month's length (matches backend advanceOneMonth).
+    const lastDay = new Date(targetYear, targetMonth, 0).getDate();
+    const runDay = Math.min(dayOfMonth, lastDay);
     const nextRunDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(runDay).padStart(2, '0')}`;
     await apiPost('/api/recurring-rules', {
       transactionType: form.transactionType,

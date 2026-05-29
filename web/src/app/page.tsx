@@ -10,7 +10,7 @@ import { SectionLabel } from '@/components/ui/SectionLabel';
 import { TypeBadge } from '@/components/ui/TypeBadge';
 import { useApp } from '@/context/AppContext';
 import { useData } from '@/context/DataContext';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 import { catDisplay } from '@/lib/catDisplay';
 import type { ApiTransaction, BudgetUsageItem } from '@/lib/types';
 import { CN_FONT, NUM_FONT, T } from '@/lib/tokens';
@@ -108,6 +108,11 @@ export default function DashboardPage() {
   const load = useCallback(async (m: string) => {
     setLoading(true);
     try {
+      // Materialize any due recurring rules first (current month only), so
+      // balances + projection reflect them. Idempotent server-side.
+      if (m === todayMonth()) {
+        try { await apiPost('/api/jobs/generate-recurring-transactions', {}); } catch { /* non-fatal */ }
+      }
       const [list, usageResp, balances, rules] = await Promise.all([
         apiGet<ApiTransaction[]>(`/api/transactions?month=${m}`),
         apiGet<{ month: string; items: BudgetUsageItem[] }>(`/api/budgets/usage?month=${m}`),
@@ -165,13 +170,16 @@ export default function DashboardPage() {
   const activePms = data.paymentMethods.filter((p) => p.isActive).slice(0, 5);
 
   // Projected month-end balance (JPY only)
-  const todayDayOfMonth = new Date().getDate();
   // For projected balance: use actual balances (credit card balance is already negative = debt)
   const jpyPmTotal = data.paymentMethods
     .filter((p) => p.isActive && (p.currency === 'JPY' || !p.currency))
     .reduce((s, p) => s + (pmBalances[p.id] ?? 0), 0);
+  // Still-pending this month = nextRunDate falls in the current month (fired/early-
+  // executed rules have already advanced to next month, so they're excluded — no
+  // double-counting against balances).
+  const curMonth = todayMonth();
   const remainingRules = recurringRules.filter(
-    (r) => r.isActive && r.currency === 'JPY' && r.dayOfMonth >= todayDayOfMonth
+    (r) => r.isActive && r.currency === 'JPY' && r.nextRunDate && r.nextRunDate.slice(0, 7) === curMonth
   );
   const projectedIn = remainingRules.filter((r) => r.transactionType === 'income').reduce((s, r) => s + r.amount, 0);
   const projectedEx = remainingRules.filter((r) => r.transactionType === 'expense').reduce((s, r) => s + r.amount, 0);

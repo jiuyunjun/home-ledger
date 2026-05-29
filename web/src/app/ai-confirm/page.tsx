@@ -250,8 +250,9 @@ function ItemConfRow({ candidate, edit, rejected, first, onEditName, onEditAmoun
 
 // ─── Receipt group ────────────────────────────────────────────────────────────
 
-function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, regenerating, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup, onRegenerate }: {
+function ReceiptGroup({ group, photoItemCount, itemEdits, receiptEdit, rejected, regenerating, onItemEdit, onReceiptEdit, onToggleReject, onRejectGroup, onRegenerate }: {
   group: { key: string; receiptId: string; date: string; type: string; currency: string; actorId: string; hint: string; paymentMethodId: string; storeName: string; items: Candidate[] };
+  photoItemCount: number;
   itemEdits: Record<string, ItemEdit>;
   receiptEdit: ReceiptEdit;
   rejected: Set<string>;
@@ -325,7 +326,11 @@ function ReceiptGroup({ group, itemEdits, receiptEdit, rejected, regenerating, o
       {/* Regenerate model picker (inline) */}
       {regenOpen && !regenerating && (
         <div style={{ marginBottom: 10, padding: 10, border: `1px solid ${T.border}`, borderRadius: 10, background: T.surfaceAlt }}>
-          <div style={{ fontSize: 11, color: T.textSoft, marginBottom: 6 }}>当前 {group.items.length} 项将被丢弃并重新识别 · 选择模型：</div>
+          <div style={{ fontSize: 11, color: T.textSoft, marginBottom: 6 }}>
+            {photoItemCount > group.items.length
+              ? `整张照片共 ${photoItemCount} 项将全部重新识别（含同张照片的其它小票）· 选择模型：`
+              : `当前 ${group.items.length} 项将被丢弃并重新识别 · 选择模型：`}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {([{ v: 'accurate', label: '精准', sub: 'GPT-5.5' }, { v: 'fast', label: '快速', sub: 'GPT-5.4 mini' }] as const).map((opt) => (
               <div key={opt.v} onClick={() => { setRegenOpen(false); onRegenerate(opt.v); }}
@@ -529,8 +534,20 @@ export default function AIConfirmPage() {
   const receiptGroups = Array.from(groupMap.values());
 
   const active = candidates.filter((c) => !rejected.has(c.id));
-  const totalActive = active.reduce((s, c) => s + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount), 0);
-  const primaryCurrency = ((receiptGroups[0] && (receiptEdits[receiptGroups[0].receiptId]?.suggestedCurrency ?? receiptGroups[0].currency)) ?? 'JPY') as 'JPY' | 'CNY';
+
+  // Item count per physical photo (receiptId) — regenerating one re-extracts all.
+  const photoItemCounts: Record<string, number> = {};
+  for (const c of candidates) photoItemCounts[c.receiptId] = (photoItemCounts[c.receiptId] ?? 0) + 1;
+
+  // Totals split by currency so a mixed JPY+CNY batch isn't summed into one number.
+  const totalsByCurrency: Record<string, number> = {};
+  for (const c of active) {
+    const cur = (receiptEdits[c.subReceiptId ?? c.receiptId]?.suggestedCurrency ?? c.suggestedCurrency) || 'JPY';
+    totalsByCurrency[cur] = (totalsByCurrency[cur] ?? 0) + (itemEdits[c.id]?.suggestedAmount ?? c.suggestedAmount);
+  }
+  const totalLabel = Object.entries(totalsByCurrency)
+    .map(([cur, amt]) => (cur === 'JPY' ? `¥${amt.toLocaleString()}` : `${amt.toLocaleString()} ${cur}`))
+    .join(' + ') || '¥0';
 
   async function handleConfirmAll() {
     if (acting || active.length === 0) return;
@@ -563,7 +580,7 @@ export default function AIConfirmPage() {
         groupCnyMap.set(group.key, alloc);
       }
 
-      for (const c of active) {
+      await Promise.all(active.map(async (c) => {
         const rEdit = receiptEdits[c.subReceiptId ?? c.receiptId] ?? {};
         const iEdit = itemEdits[c.id] ?? {};
         const body: Record<string, unknown> = {};
@@ -578,10 +595,8 @@ export default function AIConfirmPage() {
         if (cnyAlloc && cnyAlloc > 0) { body.convertedAmount = cnyAlloc; body.convertedCurrency = 'CNY'; }
         if (Object.keys(body).length > 0) await apiPatch(`/api/transaction-candidates/${c.id}`, body);
         await apiPost(`/api/transaction-candidates/${c.id}/confirm`, {});
-      }
-      for (const id of rejected) {
-        await apiPost(`/api/transaction-candidates/${id}/reject`, {});
-      }
+      }));
+      await Promise.all([...rejected].map((id) => apiPost(`/api/transaction-candidates/${id}/reject`, {})));
       router.push('/transactions');
     } catch (e: any) {
       setConfirmError(e?.message ?? '操作失败，请重试');
@@ -623,9 +638,7 @@ export default function AIConfirmPage() {
     hapticWarn();
     setActing(true);
     try {
-      for (const c of candidates) {
-        await apiPost(`/api/transaction-candidates/${c.id}/reject`, {});
-      }
+      await Promise.all(candidates.map((c) => apiPost(`/api/transaction-candidates/${c.id}/reject`, {})));
       router.push('/upload');
     } catch (e) {
       console.error(e);
@@ -673,6 +686,7 @@ export default function AIConfirmPage() {
       <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px 100px' }}>
         {receiptGroups.map((group) => (
           <ReceiptGroup key={group.key} group={group}
+            photoItemCount={photoItemCounts[group.receiptId] ?? group.items.length}
             itemEdits={itemEdits}
             receiptEdit={receiptEdits[group.key] ?? {}}
             rejected={rejected}
@@ -700,7 +714,7 @@ export default function AIConfirmPage() {
         <Button variant="success" size="lg" style={{ flex: 2, flexDirection: 'column', gap: 0, padding: '6px 10px', height: 48 }} onClick={handleConfirmAll} disabled={acting || active.length === 0}>
           <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.1 }}>{acting ? '处理中…' : '确认入账'}</span>
           <span style={{ fontSize: 10, opacity: 0.85, lineHeight: 1.1, marginTop: 2 }}>
-            {active.length} 笔 · {primaryCurrency === 'JPY' ? '¥' : '¥'}{totalActive.toLocaleString()}
+            {active.length} 笔 · {totalLabel}
           </span>
         </Button>
       </div>

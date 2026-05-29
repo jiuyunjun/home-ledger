@@ -61,3 +61,45 @@ func DeleteRecurringRule(ctx context.Context, id string) error {
 	_, err := fs(ctx).Collection("recurring_rules").Doc(id).Delete(ctx)
 	return err
 }
+
+// ExecuteRecurringRule atomically creates tx and advances the rule's nextRunDate
+// to newNextRunDate, but only if the rule is still active and its nextRunDate
+// still equals expectedNextRunDate. It returns false (without error) when the
+// guard fails — i.e. another writer already advanced the rule or it was paused —
+// so callers stop instead of creating a duplicate. Firestore retries the closure
+// on contention, and on retry the guard sees the advanced date and skips.
+func ExecuteRecurringRule(ctx context.Context, ruleID, expectedNextRunDate, newNextRunDate string, tx *domain.Transaction) (bool, error) {
+	client := fs(ctx)
+	committed := false
+	err := client.RunTransaction(ctx, func(ctx context.Context, t *firestore.Transaction) error {
+		committed = false
+		ruleRef := client.Collection("recurring_rules").Doc(ruleID)
+		snap, err := t.Get(ruleRef)
+		if err != nil {
+			return err
+		}
+		var rule domain.RecurringRule
+		if err := snap.DataTo(&rule); err != nil {
+			return err
+		}
+		if !rule.IsActive || rule.NextRunDate != expectedNextRunDate {
+			return nil
+		}
+		txRef := client.Collection("transactions").Doc(tx.ID)
+		if err := t.Set(txRef, tx); err != nil {
+			return err
+		}
+		if err := t.Update(ruleRef, []firestore.Update{
+			{Path: "nextRunDate", Value: newNextRunDate},
+			{Path: "updatedAt", Value: tx.CreatedAt},
+		}); err != nil {
+			return err
+		}
+		committed = true
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return committed, nil
+}

@@ -76,6 +76,7 @@ func NewRouter(allowedOrigins []string) http.Handler {
 		r.Get("/recurring-rules", listRecurringRules)
 		r.Post("/recurring-rules", createRecurringRule)
 		r.Patch("/recurring-rules/{ruleId}", patchRecurringRule)
+		r.Post("/recurring-rules/{ruleId}/execute", executeRecurringRule)
 		r.Delete("/recurring-rules/{ruleId}", deleteRecurringRule)
 
 		// Monthly budgets (Milestone 11)

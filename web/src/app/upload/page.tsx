@@ -13,9 +13,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DragEvent, useRef, useState } from 'react';
 
-// Max long edge 1600px, JPEG 85% — sufficient for AI text recognition (ADR-010).
-async function compressImage(file: File): Promise<File> {
-  if (!file.type.startsWith('image/')) return file;
+const isHeic = (f: File) => /heic|heif/i.test(f.type) || /\.(heic|heif)$/i.test(f.name);
+
+// Guarantees an OpenAI-compatible format and optionally downscales.
+// OpenAI vision can't read HEIC/HEIF, so those are always re-encoded to JPEG;
+// already-compatible formats are kept byte-for-byte unless downscaling is on.
+// When downscaling: long edge 1600px @ JPEG 85% — enough for AI text recognition.
+async function prepareImage(file: File, downscale: boolean): Promise<File> {
+  if (!file.type.startsWith('image/') && !isHeic(file)) return file;
+  if (!downscale && !isHeic(file)) return file;
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -23,7 +29,7 @@ async function compressImage(file: File): Promise<File> {
       URL.revokeObjectURL(url);
       const MAX = 1600;
       let { width, height } = img;
-      if (width > MAX || height > MAX) {
+      if (downscale && (width > MAX || height > MAX)) {
         if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
         else { width = Math.round((width * MAX) / height); height = MAX; }
       }
@@ -35,7 +41,7 @@ async function compressImage(file: File): Promise<File> {
           if (!blob) { resolve(file); return; }
           resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
         },
-        'image/jpeg', 0.85,
+        'image/jpeg', downscale ? 0.85 : 0.92,
       );
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
@@ -56,7 +62,7 @@ interface QueueItem {
 }
 
 const STATUS_META: Record<QueueStatus, { label: string; color: string; bg: string }> = {
-  compressing: { label: '压缩中', color: T.accent,   bg: T.accentSoft   },
+  compressing: { label: '处理中', color: T.accent,   bg: T.accentSoft   },
   ready:       { label: '已就绪', color: T.success,  bg: T.successSoft  },
   uploading:   { label: '上传中', color: T.accent,   bg: T.accentSoft   },
   extracting:  { label: 'AI识别中', color: T.transfer, bg: T.transferSoft },
@@ -113,7 +119,7 @@ export default function UploadPage() {
   }
 
   async function processFiles(files: FileList | File[]) {
-    const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/') || isHeic(f));
     if (arr.length === 0) return;
 
     const items: QueueItem[] = arr.map((f) => ({
@@ -125,7 +131,7 @@ export default function UploadPage() {
     setQueue((prev) => [...prev, ...items]);
 
     for (let i = 0; i < arr.length; i++) {
-      const file = compress ? await compressImage(arr[i]) : arr[i];
+      const file = await prepareImage(arr[i], compress);
       setQueue((prev) => prev.map((q) =>
         q.id === items[i].id
           ? { ...q, status: 'ready', compressedSize: fmtSize(file.size), file }

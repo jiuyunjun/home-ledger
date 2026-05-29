@@ -164,6 +164,47 @@ func patchRecurringRule(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
+// executeRecurringRule runs a rule immediately, ahead of its scheduled day. It
+// records the transaction on today's date and advances NextRunDate one month so
+// the scheduled generation pass won't fire the same occurrence again.
+func executeRecurringRule(w http.ResponseWriter, r *http.Request) {
+	claims, ok := domain.ClaimsFromCtx(r.Context())
+	if !ok {
+		writeAppError(w, domain.NewUnauthorizedError())
+		return
+	}
+	id := chi.URLParam(r, "ruleId")
+	rule, err := repo.GetRecurringRule(r.Context(), id)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if rule == nil || rule.HouseholdID != claims.HouseholdID {
+		writeAppError(w, domain.NewNotFoundError("recurring-rule"))
+		return
+	}
+	if !rule.IsActive {
+		writeAppError(w, domain.NewValidationError("rule is not active", "isActive"))
+		return
+	}
+
+	today := time.Now().In(jstZone).Format("2006-01-02")
+	advanced := advanceOneMonth(rule.NextRunDate, rule.DayOfMonth)
+	tx := buildRecurringTx(rule, today, claims.HouseholdID, claims.UID)
+
+	committed, err := repo.ExecuteRecurringRule(r.Context(), rule.ID, rule.NextRunDate, advanced, tx)
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	if !committed {
+		// Already executed for this cycle by another client; treat as a no-op.
+		writeJSON(w, http.StatusOK, map[string]bool{"created": false})
+		return
+	}
+	writeJSON(w, http.StatusCreated, tx)
+}
+
 func deleteRecurringRule(w http.ResponseWriter, r *http.Request) {
 	claims, ok := domain.ClaimsFromCtx(r.Context())
 	if !ok {

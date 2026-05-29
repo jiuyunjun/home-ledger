@@ -171,6 +171,7 @@ function EditBudgetSheet({ budget, onClose, onSaved }: {
   const [active, setActive] = useState(budget.isActive);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -188,7 +189,6 @@ function EditBudgetSheet({ budget, onClose, onSaved }: {
   }
 
   async function handleDelete() {
-    if (!confirm('删除此预算？')) return;
     setDeleting(true);
     try {
       await apiDelete(`/api/budgets/${budget.id}`);
@@ -222,9 +222,18 @@ function EditBudgetSheet({ budget, onClose, onSaved }: {
         <Button variant="primary" size="lg" style={{ width: '100%' }} onClick={handleSave} disabled={saving || deleting}>
           {saving ? '保存中…' : '保存'}
         </Button>
-        <Button variant="danger" size="md" style={{ width: '100%' }} onClick={handleDelete} disabled={saving || deleting}>
-          {deleting ? '删除中…' : '删除此预算'}
-        </Button>
+        {!confirmDel ? (
+          <Button variant="danger" size="md" style={{ width: '100%' }} onClick={() => setConfirmDel(true)} disabled={saving || deleting}>
+            删除此预算
+          </Button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" size="md" style={{ flex: 1 }} onClick={() => setConfirmDel(false)} disabled={deleting}>取消</Button>
+            <Button variant="danger" size="md" style={{ flex: 1 }} onClick={handleDelete} disabled={deleting}>
+              {deleting ? '删除中…' : '确认删除'}
+            </Button>
+          </div>
+        )}
       </div>
     </Sheet>
   );
@@ -326,6 +335,10 @@ export default function BudgetPage() {
   const totalLimit = active.reduce((s, b) => s + b.limitAmount, 0);
   const totalUsed = active.reduce((s, b) => s + (usageMap[b.id]?.usedAmount ?? 0), 0);
   const overall = totalLimit > 0 ? totalUsed / totalLimit : 0;
+  // Average alert threshold across active budgets (fallback 80%) for the overall bar.
+  const avgThreshold = active.length > 0
+    ? Math.round(active.reduce((s, b) => s + b.alertThresholdPercent, 0) / active.length)
+    : 80;
 
   const getStatus = (b: MonthlyBudget) => {
     const s = usageMap[b.id]?.status ?? 'ok';
@@ -380,8 +393,8 @@ export default function BudgetPage() {
                 <span style={{ fontSize: 12, color: T.textSoft }}>/ <Amount value={totalLimit} size={12} weight={500} color={T.textSoft} /></span>
               </div>
               <div style={{ marginTop: 10, height: 8, background: T.bgSubtle, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-                <div style={{ width: `${Math.min(100, overall * 100)}%`, height: '100%', background: overall >= 1 ? T.danger : overall >= 0.85 ? T.warning : T.accent }} />
-                <div style={{ position: 'absolute', left: '80%', top: -2, bottom: -2, width: 1, background: T.textDim }} />
+                <div style={{ width: `${Math.min(100, overall * 100)}%`, height: '100%', background: overall >= 1 ? T.danger : overall >= avgThreshold / 100 ? T.warning : T.accent }} />
+                <div style={{ position: 'absolute', left: `${avgThreshold}%`, top: -2, bottom: -2, width: 1, background: T.textDim }} />
               </div>
               <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textMute }}>
                 <span>{(overall * 100).toFixed(0)}% 已用</span>
