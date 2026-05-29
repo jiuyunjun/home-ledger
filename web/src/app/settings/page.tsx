@@ -174,6 +174,7 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [delError, setDelError] = useState('');
   const isCreditCard = pm.type === 'credit_card';
 
   const debitablePms = data.paymentMethods.filter((p) => p.isActive && p.id !== pm.id && p.type !== 'credit_card');
@@ -197,10 +198,14 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
 
   async function handleDelete() {
     setDeleting(true);
+    setDelError('');
     try {
       await apiDelete(`/api/payment-methods/${pm.id}`);
       onSaved();
       onClose();
+    } catch (e) {
+      setDelError(e instanceof Error ? e.message : '删除失败');
+      setConfirmDel(false);
     } finally {
       setDeleting(false);
     }
@@ -277,6 +282,7 @@ function EditPaymentMethodSheet({ pm, onClose, onSaved }: { pm: PaymentMethod; o
             </Button>
           </div>
         )}
+        {delError && <div style={{ fontSize: 12, color: T.danger, textAlign: 'center' }}>{delError}</div>}
       </div>
     </Sheet>
   );
@@ -353,6 +359,7 @@ function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [delError, setDelError] = useState('');
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -368,10 +375,14 @@ function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: 
 
   async function handleDelete() {
     setDeleting(true);
+    setDelError('');
     try {
       await apiDelete(`/api/categories/${cat.id}`);
       onSaved();
       onClose();
+    } catch (e) {
+      setDelError(e instanceof Error ? e.message : '删除失败');
+      setConfirmDel(false);
     } finally {
       setDeleting(false);
     }
@@ -398,6 +409,7 @@ function EditCategorySheet({ cat, onClose, onSaved }: { cat: Category; onClose: 
             </Button>
           </div>
         )}
+        {delError && <div style={{ fontSize: 12, color: T.danger, textAlign: 'center' }}>{delError}</div>}
       </div>
     </Sheet>
   );

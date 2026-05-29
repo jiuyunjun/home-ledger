@@ -143,6 +143,13 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showCnyField]);
 
+  // Income lands in an account in that account's currency — keep them in sync
+  // (prevents recording e.g. yen into a CNY account, which corrupts its balance).
+  useEffect(() => {
+    if (isIncome && selectedPm) setCurrency(selectedPm.currency as 'JPY' | 'CNY');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isIncome, selectedPm?.id]);
+
   async function handleSave() {
     if (amount <= 0 || saving) return;
     hapticSuccess();
@@ -209,7 +216,7 @@ function ExpenseIncomeForm({ mode }: { mode: 'expense' | 'income' }) {
           {(['JPY', 'CNY'] as const).map((cc) => {
             const on = cc === currency;
             return (
-              <div key={cc} onClick={() => setCurrency(cc)} style={{ padding: '4px 14px', borderRadius: 6, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, fontSize: 11, fontWeight: 600, fontFamily: NUM_FONT, cursor: 'pointer' }}>{cc}</div>
+              <div key={cc} onClick={() => !isIncome && setCurrency(cc)} style={{ padding: '4px 14px', borderRadius: 6, background: on ? '#fff' : 'transparent', color: on ? T.ink : T.textSoft, fontSize: 11, fontWeight: 600, fontFamily: NUM_FONT, cursor: isIncome ? 'default' : 'pointer', opacity: isIncome && !on ? 0.35 : 1 }}>{cc}</div>
             );
           })}
         </div>

@@ -137,6 +137,20 @@ func deleteCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Block delete when transactions reference this category — deleting would
+	// leave them uncategorized and break this category's budget stats.
+	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	for _, tx := range txs {
+		if tx.CategoryID == catID {
+			writeAppError(w, domain.NewConflictError("该分类已有交易记录，无法删除；可重命名或保留"))
+			return
+		}
+	}
+
 	if err := repo.DeleteCategory(r.Context(), catID); err != nil {
 		writeAppError(w, domain.NewInternalError(err))
 		return

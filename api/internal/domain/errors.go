@@ -49,6 +49,10 @@ func NewForbiddenError() *AppError {
 	return &AppError{Code: ErrForbidden, Message: "access denied"}
 }
 
+func NewConflictError(message string) *AppError {
+	return &AppError{Code: ErrConflict, Message: message}
+}
+
 func NewUnauthorizedError() *AppError {
 	return &AppError{Code: ErrUnauthorized, Message: "authentication required"}
 }

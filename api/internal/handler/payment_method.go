@@ -203,6 +203,21 @@ func deletePaymentMethod(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Block hard-delete when transactions reference this PM (as the payer or
+	// either side of a transfer) — deleting would orphan those records and drop
+	// any credit-card debt. The user should deactivate ("停用") instead.
+	txs, err := repo.ListTransactions(r.Context(), claims.HouseholdID, repo.TxFilter{})
+	if err != nil {
+		writeAppError(w, domain.NewInternalError(err))
+		return
+	}
+	for _, tx := range txs {
+		if tx.PaymentMethodID == pmID || tx.FromAccountID == pmID || tx.ToAccountID == pmID {
+			writeAppError(w, domain.NewConflictError("该支付方式已有交易记录，无法删除；请改为停用"))
+			return
+		}
+	}
+
 	if err := repo.DeletePaymentMethod(r.Context(), pmID); err != nil {
 		writeAppError(w, domain.NewInternalError(err))
 		return

@@ -107,6 +107,12 @@ func confirmCandidate(w http.ResponseWriter, r *http.Request) {
 		writeAppError(w, domain.NewNotFoundError("candidate"))
 		return
 	}
+	// Idempotency: a candidate already confirmed must not create a second
+	// transaction (guards against retries after a network blip / double submit).
+	if c.Status == domain.CandidateConfirmed {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "already_confirmed"})
+		return
+	}
 
 	now := time.Now().UTC()
 	actorID := c.SuggestedActorID
